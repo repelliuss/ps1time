@@ -1,0 +1,5 @@
+* CPU
+
+** Initialization
+
+It should start at =0xbfc00000= [[pdf:~/workspace/university/graduation-project/2/docs/mips-R3000.pdf::177++0.00][as can be read here.]]

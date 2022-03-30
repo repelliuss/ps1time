@@ -1,0 +1,5 @@
+* About tests
+** Amiga
+- Amiga tests require some amount of work done need beforehand. It seems like at least BIOS should be implemented.
+- Don't try to run =.exe=. No, not even in windows. You should read that file by your CPU.
+  

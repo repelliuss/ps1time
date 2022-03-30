@@ -1,0 +1,9 @@
+build/
+
+.cache/
+
+res/
+
+out
+
+ps1emu
