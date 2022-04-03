@@ -4,23 +4,100 @@
 #include "range.hpp"
 #include "bios.hpp"
 
-enum PCIMatch {
-  none = -1,
-  bios,
-  hw_regs
+#include <cstdlib>
+#include <cstring>
+
+// TODO:  remove heap data and allocate all memory at once
+
+enum struct PCIMatch { none = -1, bios, mem_ctrl, ram_size, cache_ctrl,
+		       ram, spu, expansion1, expansion2, irq};
+
+// TODO: may remove size constants
+
+struct HeapByteData {
+  u8 *data;
+
+  HeapByteData(u32 size) { data = static_cast<u8 *>(malloc(sizeof(u8) * size)); }
+  
+  HeapByteData(u32 size, u8 val) : HeapByteData(size) {
+    memset(data, val, sizeof(u8) * size);
+  }
+
+  ~HeapByteData() {
+    free(data);
+    data = nullptr;
+  }
 };
 
-struct HWRegs {
-  static constexpr u32 size = 8192;
+struct RAM : HeapByteData {
+  static constexpr u32 size = 2097152; // 2MB
+  static constexpr Range range = {0x00000000, 0x00200000};
+  RAM() : HeapByteData(size, 0xca) {} // initial garbage content value
+};
+
+// This is not our ram size, but a register that is being set in hw_regs area    
+struct RamSize {
+  static constexpr u32 size = 4;
+  static constexpr Range range = {0x1f801060, 0x1f801064};
+  u8 data[size];
+};
+
+// NOTE: this area lies in hardware registers or I/O map
+// NOTE: simias docs say this is SYS_CONTROL 
+// REVIEW: simias docs say these are the only important ones for now 
+struct MemCtrl {
+  static constexpr u32 size = 36;
   static constexpr Range range = {0x1f801000, 0x1f801024};
   u8 data[size];
 };
 
+struct CacheCtrl {
+  static constexpr u32 size = 4;
+  static constexpr Range range = {0xfffe0130, 0xfffe0134};
+  u8 data[size];
+};
+
+struct SPU : HeapByteData {
+  static constexpr u32 size = 640;
+  static constexpr Range range = {0x1f801c00, 0x1f801e80};
+  SPU() : HeapByteData(size) {}
+};
+
+struct Expansion1 : HeapByteData {
+  static constexpr u32 size = 8388608; // 8MB
+  static constexpr Range range = {0x1f000000, 0x1f800000};
+  Expansion1() : HeapByteData(size, 0xff) {} // TODO: Not a garbage value, not implemented, just return this. mednafen's source seems to be returning this
+};
+
+struct Expansion2 {
+  static constexpr u32 size = 66;
+  static constexpr Range range = {0x1f802000, 0x1f802042};
+  u8 data[size];
+};
+
+// IRQ stands for interrupt request
+// 0x1f801070 register is for: Interrupt Status 
+// 0x1f801074 register is for: Interrupt Mask
+struct IRQ {
+  static constexpr u32 size = 8;
+  static constexpr Range range = {0x1f801070, 0x1f801078};
+  u8 data[size];
+};
+
+// TODO: we should really consider our PCI implementation
+// TODO: should only be moved not copied due to HeapByteData implementation, double free may add NULL check?
 // Peripheral Component Interconnect
 struct PCI {
   Bios bios;
-  HWRegs hw_regs;
+  MemCtrl hw_regs;
+  RamSize ram_size;
+  CacheCtrl cache_ctrl;
+  RAM ram;
+  SPU spu;
+  Expansion1 expansion1;
+  Expansion2 expansion2;
+  IRQ irq;
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
-  bool prohibited(PCIMatch match, u32 offset, u32 value);
+  int prohibited(PCIMatch match, u32 offset, u32 value);
 };
