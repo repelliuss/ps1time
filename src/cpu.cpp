@@ -112,6 +112,16 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
 
 int CPU::decode_execute_sub(const Instruction &instruction) {
   switch (instruction.funct()) {
+  case 0x19:
+    return multu(instruction);
+  case 0x06:
+    return srlv(instruction);
+  case 0x07:
+    return srav(instruction);
+  case 0x27:
+    return nor(instruction);
+  case 0x04:
+    return sllv(instruction);
   case 0x11:
     return mthi(instruction);
   case 0x13:
@@ -160,6 +170,10 @@ int CPU::decode_execute(const Instruction &instruction) {
   switch (instruction.opcode()) {
   case 0b000000:
     return decode_execute_sub(instruction);
+  case 0x21:
+    return lh(instruction);
+  case 0x25:
+    return lhu(instruction);
   case 0x01:
     return bcondz(instruction);
   case 0x0b:
@@ -611,6 +625,7 @@ int CPU::jr(const Instruction &i) {
   return 0;
 }
 
+// NOTE: only used for lbu, may require specific lb
 static int load8_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
   case PCIMatch::ram:
@@ -623,6 +638,7 @@ static int load8_prohibited(PCIMatch match, u32 offset, u32 addr) {
   }
 }
 
+// NOTE: only used for lbu, may require specific lb
 static u8 lb_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
     // NOTE: lb expansion1 always return 1
@@ -895,6 +911,113 @@ int CPU::rfe(const Instruction &i) {
   u32 mode = cop0.regs[COP0::index_sr] & 0x3f;
   cop0.regs[COP0::index_sr] &= ~0x3f;
   cop0.regs[COP0::index_sr] |= mode >> 2;
+
+  return 0;
+}
+
+// NOTE: used only for lhu may require specific lh
+static int load16_prohibited(PCIMatch match, u32 offset, u32 addr) {
+  switch (match) {
+  case PCIMatch::ram:
+  case PCIMatch::spu: // NOTE: requires specific load value
+    return 0;
+  default:
+    printf("unhandled load16 at address %08x\n", addr);
+    return -1;
+  }
+}
+
+// NOTE: used only for lhu may require specific lh
+static u16 lh_data(PCIMatch match, u8 *data, u32 offset) {
+  switch (match) {
+    // NOTE: lh spu always return 0
+  case PCIMatch::spu:
+    return 0;
+  default:
+    return load16(data, offset);
+  }
+}
+
+int CPU::lhu(const Instruction &i) {
+  u8 *data;
+  u32 offset;
+  u32 addr = reg(i.rs()) + i.imm16_se();
+
+  if(addr % 2 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
+  
+  PCIMatch match = pci.match(data, offset, addr);
+
+  if (match == PCIMatch::none)
+    return -1;
+
+  int status = load16_prohibited(match, offset, addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  pending_load.reg_index = i.rt();
+  pending_load.val = lh_data(match, data, offset);
+
+  return 0;
+}
+
+int CPU::sllv(const Instruction &i) {
+  set_reg(i.rd(), reg(i.rt()) << (reg(i.rs()) & 0x1f));
+  return 0;
+}
+
+// TODO: call lhu and sign extend pending load value?
+int CPU::lh(const Instruction &i) {
+  u8 *data;
+  u32 offset;
+  u32 addr = reg(i.rs()) + i.imm16_se();
+
+  if(addr % 2 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
+  
+  PCIMatch match = pci.match(data, offset, addr);
+
+  if (match == PCIMatch::none)
+    return -1;
+
+  int status = load16_prohibited(match, offset, addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  pending_load.reg_index = i.rt();
+  pending_load.val = static_cast<i16>(lh_data(match, data, offset));
+
+  return 0;
+}
+
+int CPU::nor(const Instruction &i) {
+  set_reg(i.rd(), ~(reg(i.rt()) | reg(i.rs())));
+  return 0;
+}
+
+int CPU::srav(const Instruction &i) {
+  set_reg(i.rd(), static_cast<i32>(reg(i.rt())) >> (reg(i.rs()) & 0x1f));
+  return 0;
+}
+
+int CPU::srlv(const Instruction &i) {
+  set_reg(i.rd(), reg(i.rt()) >> (reg(i.rs()) & 0x1f));
+  return 0;
+}
+
+int CPU::multu(const Instruction &i) {
+  u64 rs_val = reg(i.rs());
+  u64 rt_val = reg(i.rt());
+  u64 val = rs_val * rt_val;
+
+  hi = val >> 32;
+  lo = val;
 
   return 0;
 }

@@ -16,6 +16,15 @@ u32 load32(u8 *data, u32 index) {
   return (b3 << 24) | (b2 << 16) | (b1 << 8) | b0;
 }
 
+u16 load16(u8 *data, u32 index) {
+  assert(index % 2 == 0);
+
+  u16 b0 = data[index];
+  u16 b1 = data[index + 1];
+
+  return  (b1 << 8) | b0;
+}
+
 u8 load8(u8 *data, u32 index) { return data[index]; }
 
 void store32(u8 *data, u32 value, u32 index) {

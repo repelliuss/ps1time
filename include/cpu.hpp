@@ -115,6 +115,13 @@ struct CPU {
   int mtlo(const Instruction &instruction);
   int mthi(const Instruction &instruction);
   int rfe(const Instruction &instruction);
+  int lhu(const Instruction &instruction);
+  int sllv(const Instruction &instruction);
+  int lh(const Instruction &instruction);
+  int nor(const Instruction &instruction);
+  int srav(const Instruction &instruction);
+  int srlv(const Instruction &instruction);
+  int multu(const Instruction &instruction);
 
   // TODO: may move cop0 instructions to its own
   
