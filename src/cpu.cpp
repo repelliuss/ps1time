@@ -9,7 +9,9 @@
 #include <iostream>
 
 void CPU::dump() {
-  Instruction ins = next_instruction;
+  Instruction ins;
+
+  fetch(ins.data, pc);
 
   printf("PC: %08x\n", pc);
 
@@ -43,14 +45,14 @@ int CPU::dump_and_next() {
 
 // TODO: remove assertions
 int CPU::next() {
-  Instruction instruction = next_instruction;
-  u32 instruction_data;
-
-  int cpu_fetch_result = fetch(instruction_data, pc);
+  Instruction instruction;
+  
+  int cpu_fetch_result = fetch(instruction.data, pc);
   assert(cpu_fetch_result == 0);
-  next_instruction = {.data = instruction_data};
 
-  pc += 4;
+  cur_pc = pc;
+  pc = next_pc;
+  next_pc += 4;
 
   {
     // absorb pending load, this came out because load delay slot
@@ -61,7 +63,7 @@ int CPU::next() {
   int cpu_exec_result = decode_execute(instruction);
   if (cpu_exec_result) {
     printf("cpu can't exec inst: 0x%08x pc+4: %#08x nextinst: %#08x\n",
-           instruction.data, pc, next_instruction.data);
+           instruction.data, pc, instruction.data);
     return -1;
   }
 
@@ -93,6 +95,8 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
     return mtc0(instruction);
   case 0b00000:
     return mfc0(instruction);
+  case 0b10000:
+    return rfe(instruction);
   }
 
   return -1;
@@ -100,6 +104,12 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
 
 int CPU::decode_execute_sub(const Instruction &instruction) {
   switch (instruction.funct()) {
+  case 0x11:
+    return mthi(instruction);
+  case 0x13:
+    return mtlo(instruction);
+  case 0x0c:
+    return syscall(instruction);
   case 0x2a:
     return slt(instruction);
   case 0x10:
@@ -193,6 +203,39 @@ int CPU::decode_execute(const Instruction &instruction) {
   return -1;
 }
 
+int CPU::exception(const Cause &cause) {
+  u32 handler;
+
+  // Exception handler address depends on the 'BEV' bit
+  if((cop0.regs[COP0::index_sr] & (1 << 22)) != 0) {
+    handler = 0xbfc00180;
+  }
+  else handler = 0x80000080;
+  
+  // Shift bits [5:0] of `SR` two places to the left. Those bits
+  // are three pairs of Interrupt Enable/User Mode bits behaving
+  // like a stack 3 entries deep. Entering an exception pushes a
+  // pair of zeroes by left shifting the stack which disables
+  // interrupts and puts the CPU in kernel mode. The original
+  // third entry is discarded (it's up to the kernel to handle
+  // more than two recursive exception levels).
+  u32 mode = cop0.regs[COP0::index_sr] & 0x3f;
+  cop0.regs[COP0::index_sr] &= ~0x3f;
+  cop0.regs[COP0::index_sr] |= (mode << 2) & 0x3f;
+
+  // Update `CAUSE` register with the exception code (bits
+  // [6:2])
+  cop0.regs[COP0::index_cause] = static_cast<u32>(cause) << 2;
+
+  // Save current instruction address in `EPC`
+  cop0.regs[COP0::index_epc] = cur_pc;
+
+  pc = handler;
+  next_pc = pc + 4;
+
+  return 0;
+}
+
 constexpr u32 CPU::reg(u32 index) { return in_regs[index]; }
 
 constexpr void CPU::set_reg(u32 index, u32 val) { out_regs[index] = val; }
@@ -283,7 +326,9 @@ void CPU::addiu(const Instruction &i) {
   set_reg(i.rt(), reg(i.rs()) + i.imm16_se());
 }
 
-void CPU::j(const Instruction &i) { pc = (pc & 0xf0000000) | (i.imm26() << 2); }
+void CPU::j(const Instruction &i) {
+  next_pc = (pc & 0xf0000000) | (i.imm26() << 2);
+}
 
 int CPU::ins_or(const Instruction &i) {
   set_reg(i.rd(), reg(i.rs()) | reg(i.rt()));
@@ -332,12 +377,12 @@ int CPU::mtc0(const Instruction &i) {
 
 static constexpr u32 branch_offset(u32 offset) {
   // REVIEW: is -4 correct?
-  return (offset << 2) - 4;
+  return (offset << 2);
 }
 
 int CPU::bne(const Instruction &i) {
   if (reg(i.rs()) != reg(i.rt())) {
-    pc += branch_offset(i.imm16_se());
+    next_pc = pc + branch_offset(i.imm16_se());
   }
 
   return 0;
@@ -383,7 +428,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
 }
 
 static u32 lw_data(PCIMatch match, u8 *data, u32 offset) {
-  switch(match) {
+  switch (match) {
   case PCIMatch::irq:
     return 0;
   default:
@@ -467,7 +512,7 @@ int CPU::sh(const Instruction &i) {
 }
 
 int CPU::jal(const Instruction &i) {
-  set_reg(31, pc); // pc is currently at pc+8, so it is fine
+  set_reg(31, next_pc); // next_pc is currently at pc+8, so it is fine
   j(i);
   return 0;
 }
@@ -521,7 +566,7 @@ int CPU::sb(const Instruction &i) {
 }
 
 int CPU::jr(const Instruction &i) {
-  pc = reg(i.rs());
+  next_pc = reg(i.rs());
   return 0;
 }
 
@@ -574,7 +619,7 @@ int CPU::lb(const Instruction &i) {
 int CPU::beq(const Instruction &i) {
 
   if (reg(i.rs()) == reg(i.rt())) {
-    pc += branch_offset(i.imm16_se());
+    next_pc = pc + branch_offset(i.imm16_se());
   }
 
   return 0;
@@ -585,14 +630,14 @@ int CPU::mfc0(const Instruction &i) {
   u32 cop_r = i.rd();
   u32 val;
 
+
   switch (cop_r) {
-  case 12:
+  case COP0::index_sr:
+  case COP0::index_cause:
+  case COP0::index_epc:
     pending_load.reg_index = i.rt();
-    pending_load.val = cop0.regs[12];
+    pending_load.val = cop0.regs[cop_r];
     return 0;
-  case 13:
-    printf("Unhandled read from CAUSE-$13 register!\n");
-    return -1;
   }
 
   printf("Unhandled read from cop0 register!\n");
@@ -623,7 +668,7 @@ int CPU::bgtz(const Instruction &i) {
   i32 val = reg(i.rs());
 
   if (val > 0)
-    pc += branch_offset(i.imm16_se());
+    next_pc = pc + branch_offset(i.imm16_se());
 
   return 0;
 }
@@ -632,7 +677,7 @@ int CPU::blez(const Instruction &i) {
   i32 val = reg(i.rs());
 
   if (val <= 0)
-    pc += branch_offset(i.imm16_se());
+    next_pc = pc + branch_offset(i.imm16_se());
 
   return 0;
 }
@@ -659,8 +704,8 @@ int CPU::lbu(const Instruction &i) {
 }
 
 int CPU::jalr(const Instruction &i) {
-  set_reg(i.rd(), pc);
-  pc = reg(i.rs());
+  set_reg(i.rd(), next_pc);
+  next_pc = reg(i.rs());
   return 0;
 }
 
@@ -675,10 +720,10 @@ int CPU::bcondz(const Instruction &i) {
 
   if (test != 0) {
     if (is_link) {
-      set_reg(31, pc);
+      set_reg(31, next_pc);
     }
 
-    pc += branch_offset(i.imm16_se());
+    next_pc = pc + branch_offset(i.imm16_se());
   }
 
   return 0;
@@ -779,5 +824,36 @@ int CPU::slt(const Instruction &i) {
 
   set_reg(i.rd(), val);
   
+  return 0;
+}
+
+int CPU::syscall(const Instruction &i) {
+  return exception(Cause::syscall);
+}
+
+int CPU::mtlo(const Instruction &i) {
+  lo = reg(i.rs());
+  return 0;
+}
+
+int CPU::mthi(const Instruction &i) {
+  hi = reg(i.rs());
+  return 0;
+}
+
+int CPU::rfe(const Instruction &i) {
+  // There are other instructions with same encoding but
+  // all are virtual memory related and PS1 doesn't
+  // implement them
+  // REVIEW: may remove this rfe check
+  if ((i.data & 0x3f) != 0b010000) {
+    printf("Invalid cop0 instruction: %x\n", i.data);
+    return -1;
+  }
+
+  u32 mode = cop0.regs[COP0::index_sr] & 0x3f;
+  cop0.regs[COP0::index_sr] &= ~0x3f;
+  cop0.regs[COP0::index_sr] |= mode >> 2;
+
   return 0;
 }

@@ -10,6 +10,11 @@ struct COP0 {
   // REVIEW: setting all to 0 may not be accurate i.e. sr-$12. though sr is being set to mask ISOLATE_CACHE
   // REVIEW: nocash says 32-63 is N/A should I remove?
   u32 regs[64] = {0};
+
+  // TODO: i to ins for instruction, index to i for index
+  static constexpr int index_sr = 12;
+  static constexpr int index_cause = 13;
+  static constexpr int index_epc = 14;
 };
 
 struct PendingLoad {
@@ -17,12 +22,17 @@ struct PendingLoad {
   u32 val;
 };
 
+enum struct Cause : u32 {
+  syscall = 0x8,
+};
+
 struct CPU {
   PCI &pci;
   COP0 cop0;
-  
-  u32 pc = 0xbfc00000;
-  Instruction next_instruction = {0};
+
+  u32 cur_pc;			// pc for current executed instruction
+  u32 pc = 0xbfc00000;		// cur_pc + 4 in decode_execute
+  u32 next_pc = 0xbfc00004;	// mostly cur_pc + 8 in decode_execute
   
   u32 out_regs[32];
   u32 in_regs[32];
@@ -49,6 +59,8 @@ struct CPU {
   int decode_execute(const Instruction& instruction);
   int decode_execute_sub(const Instruction& instruction); // TODO: to static
   int decode_execute_cop0(const Instruction& instruction); // TODO: to static
+
+  int exception(const Cause &cause);
 
   constexpr void set_reg(u32 index, u32 val);
   constexpr u32 reg(u32 index);
@@ -92,6 +104,12 @@ struct CPU {
   int divu(const Instruction &instruction);
   int mfhi(const Instruction &instruction);
   int slt(const Instruction &instruction);
+  int syscall(const Instruction &instruction);
+  int mtlo(const Instruction &instruction);
+  int mthi(const Instruction &instruction);
+  int rfe(const Instruction &instruction);
+
+  // TODO: may move cop0 instructions to its own
   
   bool cache_isolated();
 };
