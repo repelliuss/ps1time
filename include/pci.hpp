@@ -1,16 +1,28 @@
 #pragma once
 
-#include "types.hpp"
-#include "range.hpp"
 #include "bios.hpp"
+#include "range.hpp"
+#include "types.hpp"
 
 #include <cstdlib>
 #include <cstring>
 
 // TODO:  remove heap data and allocate all memory at once
 
-enum struct PCIMatch { none = -1, bios, mem_ctrl, ram_size, cache_ctrl,
-		       ram, spu, expansion1, expansion2, irq, timers};
+enum struct PCIMatch {
+  none = -1,
+  bios,
+  mem_ctrl,
+  ram_size,
+  cache_ctrl,
+  ram,
+  spu,
+  expansion1,
+  expansion2,
+  irq,
+  timers,
+  dma,
+};
 
 // TODO: may remove size constants
 
@@ -91,6 +103,12 @@ struct Timers {
   u8 data[size];
 };
 
+struct DMA {
+  static constexpr u32 size = 0x80;
+  static constexpr Range range = {0x1f801080, 0x1f801100};
+  u8 data[size];
+};
+
 // TODO: we should really consider our PCI implementation
 // TODO: should only be moved not copied due to HeapByteData implementation, double free may add NULL check?
 // Peripheral Component Interconnect
@@ -105,6 +123,7 @@ struct PCI {
   Expansion2 expansion2;
   IRQ irq;
   Timers timers;
+  DMA dma;
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
 };

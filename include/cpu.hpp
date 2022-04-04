@@ -24,6 +24,9 @@ struct PendingLoad {
 
 enum struct Cause : u32 {
   syscall = 0x8,
+  overflow = 0xc,
+  unaligned_load_addr = 0x4,
+  unaligned_store_addr = 0x5,
 };
 
 struct CPU {
@@ -33,6 +36,9 @@ struct CPU {
   u32 cur_pc;			// pc for current executed instruction
   u32 pc = 0xbfc00000;		// cur_pc + 4 in decode_execute
   u32 next_pc = 0xbfc00004;	// mostly cur_pc + 8 in decode_execute
+
+  bool branch_ocurred = false;
+  bool in_delay_slot = false;
   
   u32 out_regs[32];
   u32 in_regs[32];
@@ -60,6 +66,7 @@ struct CPU {
   int decode_execute_sub(const Instruction& instruction); // TODO: to static
   int decode_execute_cop0(const Instruction& instruction); // TODO: to static
 
+  void branch(u32 offset);
   int exception(const Cause &cause);
 
   constexpr void set_reg(u32 index, u32 val);

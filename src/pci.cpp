@@ -83,6 +83,12 @@ PCIMatch PCI::match(u8*& out_data, u32& offset, u32 addr) {
     return PCIMatch::timers;
   }
 
+  if (!DMA::range.offset(offset, addr)) {
+    log_pci("PCI::DMA matched!\n");
+    out_data = dma.data;
+    return PCIMatch::dma;
+  }
+
   // TODO: remove printf
   printf("No PCIMatch for addr: %#8x\n", addr);
   

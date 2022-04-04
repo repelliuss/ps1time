@@ -50,6 +50,14 @@ int CPU::next() {
   int cpu_fetch_result = fetch(instruction.data, pc);
   assert(cpu_fetch_result == 0);
 
+  in_delay_slot = branch_ocurred;
+  branch_ocurred = false;
+
+  // TODO: move this to pc setting instructions, jump and branch
+  if(pc % 4 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
+
   cur_pc = pc;
   pc = next_pc;
   next_pc += 4;
@@ -62,8 +70,8 @@ int CPU::next() {
 
   int cpu_exec_result = decode_execute(instruction);
   if (cpu_exec_result) {
-    printf("cpu can't exec inst: 0x%08x pc+4: %#08x nextinst: %#08x\n",
-           instruction.data, pc, instruction.data);
+    printf("cpu can't exec inst: 0x%08x pc+4: %#08x\n",
+           instruction.data, pc);
     return -1;
   }
 
@@ -206,6 +214,7 @@ int CPU::decode_execute(const Instruction &instruction) {
 int CPU::exception(const Cause &cause) {
   u32 handler;
 
+  // NOTE: nocash says BEV=1 exception vectors doesn't happen
   // Exception handler address depends on the 'BEV' bit
   if((cop0.regs[COP0::index_sr] & (1 << 22)) != 0) {
     handler = 0xbfc00180;
@@ -230,6 +239,11 @@ int CPU::exception(const Cause &cause) {
   // Save current instruction address in `EPC`
   cop0.regs[COP0::index_epc] = cur_pc;
 
+  if (in_delay_slot) {
+    cop0.regs[COP0::index_epc] -= 4;
+    cop0.regs[COP0::index_cause] |= 1 << 31;
+  }
+
   pc = handler;
   next_pc = pc + 4;
 
@@ -246,7 +260,7 @@ void CPU::ori(const Instruction &i) {
   set_reg(i.rt(), reg(i.rs()) | i.imm16());
 }
 
-static int sw_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
+static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
   switch (match) {
   case PCIMatch::ram:
     return 0;
@@ -257,6 +271,10 @@ static int sw_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
 
   case PCIMatch::cache_ctrl:
     printf("Unhandled write to CACHE_CONTROL: %08x\n", val);
+    return 1;
+
+  case PCIMatch::dma:
+    printf("DMA write: %08x %08x\n", addr, val);
     return 1;
 
   case PCIMatch::mem_ctrl:
@@ -302,12 +320,17 @@ int CPU::sw(const Instruction &i) {
   u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 value = reg(i.rt());
+
+  if(addr % 4 != 0) {
+    return exception(Cause::unaligned_store_addr);
+  }
+  
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
     return -1;
 
-  int status = sw_prohibited(match, offset, value, addr);
+  int status = store32_prohibited(match, offset, value, addr);
   if (status < 0)
     return -1;
   if (status == 1)
@@ -328,6 +351,7 @@ void CPU::addiu(const Instruction &i) {
 
 void CPU::j(const Instruction &i) {
   next_pc = (pc & 0xf0000000) | (i.imm26() << 2);
+  branch_ocurred = false;
 }
 
 int CPU::ins_or(const Instruction &i) {
@@ -375,14 +399,14 @@ int CPU::mtc0(const Instruction &i) {
   return 0;
 }
 
-static constexpr u32 branch_offset(u32 offset) {
-  // REVIEW: is -4 correct?
-  return (offset << 2);
+void CPU::branch(u32 offset) {
+  next_pc = pc + (offset << 2);
+  branch_ocurred = true;
 }
 
 int CPU::bne(const Instruction &i) {
   if (reg(i.rs()) != reg(i.rt())) {
-    next_pc = pc + branch_offset(i.imm16_se());
+    branch(i.imm16_se());
   }
 
   return 0;
@@ -402,8 +426,7 @@ int CPU::addi(const Instruction &i) {
   u32 imm = i.imm16_se();
 
   if (checked_sum(sum, rs_v, imm)) {
-    printf("ADDI overflow\n");
-    return -1;
+    return exception(Cause::overflow);
   }
 
   set_reg(i.rt(), sum);
@@ -420,7 +443,10 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     return 0;
   case PCIMatch::irq:
     printf("IRQ control read %x\n", offset);
-    return 0;
+    return 1;
+  case PCIMatch::dma:
+    printf("DMA read %08x\n", addr);
+    return 1;
   default:
     printf("unhandled load32 at address %08x\n", addr);
     return -1;
@@ -440,6 +466,11 @@ int CPU::lw(const Instruction &i) {
   u8 *data;
   u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
+
+  if (addr % 4 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
+
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
@@ -450,7 +481,7 @@ int CPU::lw(const Instruction &i) {
     return -1;
   if (status == 1)
     return 0;
-
+  
   pending_load.reg_index = i.rt();
   pending_load.val = lw_data(match, data, offset);
 
@@ -469,6 +500,9 @@ int CPU::addu(const Instruction &i) {
 
 static int store16_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
+  case PCIMatch::ram:
+    return 0;
+    
   case PCIMatch::spu:
     printf("Unhandled write to SPU register %x\n", offset);
     return 1;
@@ -495,6 +529,11 @@ int CPU::sh(const Instruction &i) {
   u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 value = reg(i.rt());
+
+  if(addr % 2 != 0) {
+    return exception(Cause::unaligned_store_addr);
+  }
+  
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
@@ -506,7 +545,7 @@ int CPU::sh(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  // TODO: store value to u16
+  store16(data, value, offset);
 
   return 0;
 }
@@ -514,6 +553,7 @@ int CPU::sh(const Instruction &i) {
 int CPU::jal(const Instruction &i) {
   set_reg(31, next_pc); // next_pc is currently at pc+8, so it is fine
   j(i);
+  branch_ocurred = true;
   return 0;
 }
 
@@ -567,6 +607,7 @@ int CPU::sb(const Instruction &i) {
 
 int CPU::jr(const Instruction &i) {
   next_pc = reg(i.rs());
+  branch_ocurred = true;
   return 0;
 }
 
@@ -619,7 +660,7 @@ int CPU::lb(const Instruction &i) {
 int CPU::beq(const Instruction &i) {
 
   if (reg(i.rs()) == reg(i.rt())) {
-    next_pc = pc + branch_offset(i.imm16_se());
+    branch(i.imm16_se());
   }
 
   return 0;
@@ -655,8 +696,7 @@ int CPU::add(const Instruction &i) {
   i32 rt_v = reg(i.rt());
 
   if (checked_sum(sum, rs_v, rt_v)) {
-    printf("ADD overflow\n");
-    return -1;
+    return exception(Cause::overflow);
   }
 
   set_reg(i.rd(), sum);
@@ -668,7 +708,7 @@ int CPU::bgtz(const Instruction &i) {
   i32 val = reg(i.rs());
 
   if (val > 0)
-    next_pc = pc + branch_offset(i.imm16_se());
+    branch(i.imm16_se());
 
   return 0;
 }
@@ -677,7 +717,7 @@ int CPU::blez(const Instruction &i) {
   i32 val = reg(i.rs());
 
   if (val <= 0)
-    next_pc = pc + branch_offset(i.imm16_se());
+    branch(i.imm16_se());
 
   return 0;
 }
@@ -706,6 +746,7 @@ int CPU::lbu(const Instruction &i) {
 int CPU::jalr(const Instruction &i) {
   set_reg(i.rd(), next_pc);
   next_pc = reg(i.rs());
+  branch_ocurred = true;
   return 0;
 }
 
@@ -723,7 +764,7 @@ int CPU::bcondz(const Instruction &i) {
       set_reg(31, next_pc);
     }
 
-    next_pc = pc + branch_offset(i.imm16_se());
+    branch(i.imm16_se());
   }
 
   return 0;
