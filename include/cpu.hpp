@@ -26,6 +26,8 @@ struct CPU {
   
   u32 out_regs[32];
   u32 in_regs[32];
+  u32 hi = 0xdeadbeef; //div instruction remainder
+  u32 lo = 0xdeadbeef; //div instruction quotient
 
   static constexpr PendingLoad no_op_load = {0, 0};
   PendingLoad pending_load = no_op_load;
@@ -42,6 +44,7 @@ struct CPU {
   void dump();
 
   int next();
+  int dump_and_next();
   int fetch(u32& instruction_data, u32 addr);
   int decode_execute(const Instruction& instruction);
   int decode_execute_sub(const Instruction& instruction); // TODO: to static
@@ -74,6 +77,21 @@ struct CPU {
   int mfc0(const Instruction &instruction);
   int ins_and(const Instruction &instruction);
   int add(const Instruction &instruction);
-
+  int bgtz(const Instruction &instruction);
+  int blez(const Instruction &instruction);
+  int lbu(const Instruction &instruction);
+  int jalr(const Instruction &instruction);
+  int bcondz(const Instruction &instruction);
+  int slti(const Instruction &instruction);
+  int subu(const Instruction &instruction);
+  int sra(const Instruction &instruction);
+  int div(const Instruction &instruction);
+  int mflo(const Instruction &instruction);
+  int srl(const Instruction &instruction);
+  int sltiu(const Instruction &instruction);
+  int divu(const Instruction &instruction);
+  int mfhi(const Instruction &instruction);
+  int slt(const Instruction &instruction);
+  
   bool cache_isolated();
 };

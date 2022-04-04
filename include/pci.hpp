@@ -10,7 +10,7 @@
 // TODO:  remove heap data and allocate all memory at once
 
 enum struct PCIMatch { none = -1, bios, mem_ctrl, ram_size, cache_ctrl,
-		       ram, spu, expansion1, expansion2, irq};
+		       ram, spu, expansion1, expansion2, irq, timers};
 
 // TODO: may remove size constants
 
@@ -66,7 +66,7 @@ struct SPU : HeapByteData {
 struct Expansion1 : HeapByteData {
   static constexpr u32 size = 8388608; // 8MB
   static constexpr Range range = {0x1f000000, 0x1f800000};
-  Expansion1() : HeapByteData(size, 0xff) {} // TODO: Not a garbage value, not implemented, just return this. mednafen's source seems to be returning this
+  Expansion1() : HeapByteData(size) {} 
 };
 
 struct Expansion2 {
@@ -75,12 +75,19 @@ struct Expansion2 {
   u8 data[size];
 };
 
+// NOTE: writes are ignored for these registers and return 0
 // IRQ stands for interrupt request
 // 0x1f801070 register is for: Interrupt Status 
 // 0x1f801074 register is for: Interrupt Mask
 struct IRQ {
   static constexpr u32 size = 8;
   static constexpr Range range = {0x1f801070, 0x1f801078};
+  u8 data[size];
+};
+
+struct Timers {
+  static constexpr u32 size = 48;
+  static constexpr Range range = {0x1f801100, 0x1f801130};
   u8 data[size];
 };
 
@@ -97,7 +104,7 @@ struct PCI {
   Expansion1 expansion1;
   Expansion2 expansion2;
   IRQ irq;
+  Timers timers;
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
-  int prohibited(PCIMatch match, u32 offset, u32 value);
 };

@@ -23,3 +23,7 @@ u32 Instruction::imm26() const noexcept { return data & 0x3ffffff; }
 u32 Instruction::comment() const noexcept { return (data >> 6) & 0xfffff; }
 
 u32 Instruction::bit25() const noexcept { return (data >> 25) & 1; }
+
+u32 Instruction::bit20() const noexcept { return (data >> 20) & 1; }
+
+u32 Instruction::bit16() const noexcept { return (data >> 16) & 1; }

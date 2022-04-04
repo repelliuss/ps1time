@@ -77,43 +77,14 @@ PCIMatch PCI::match(u8*& out_data, u32& offset, u32 addr) {
     return PCIMatch::irq;
   }
 
+  if (!Timers::range.offset(offset, addr)) {
+    log_pci("PCI::Timers matched!\n");
+    out_data = timers.data;
+    return PCIMatch::timers;
+  }
+
   // TODO: remove printf
   printf("No PCIMatch for addr: %#8x\n", addr);
   
   return PCIMatch::none;
-}
-
-// TODO: remove this usage design
-int PCI::prohibited(PCIMatch match, u32 offset, u32 value) {
-  assert(match != PCIMatch::none);
-
-  // REVIEW: simias doc says no other than this values are written so can this be removed?
-  if(match == PCIMatch::mem_ctrl) {
-    if ((offset == 0 && value != 0x1f000000) ||
-	(offset == 4 && value != 0x1f802000)) {
-      printf("Prohibited writing to mem_ctrl! addr: %#8x, val: %#8x\n",
-	     MemCtrl::range.beg + offset, value);
-      return -1;
-    }
-  }
-
-  if(match == PCIMatch::spu) {
-    printf("Prohibited writing to spu! addr: %#8x, val: %#8x\n",
-	   SPU::range.beg + offset, value);
-    return -1;
-  }
-
-  if(match == PCIMatch::expansion2) {
-    printf("Prohibited writing to expansion2! addr: %#8x, val: %#8x\n",
-	   Expansion2::range.beg + offset, value);
-    return -1;
-  }
-
-  if(match == PCIMatch::irq) {
-    printf("Prohibited writing to IRQ! addr: %#8x, val: %#8x\n",
-	   IRQ::range.beg + offset, value);
-    return -1;
-  }
-
-  return 0;
 }

@@ -42,4 +42,10 @@ struct Instruction {
 
   //[25]
   u32 bit25() const noexcept;
+
+  //[20]
+  u32 bit20() const noexcept;
+
+  //[16]
+  u32 bit16() const noexcept;
 };

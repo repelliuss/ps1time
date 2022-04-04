@@ -18,9 +18,7 @@ int main() {
   
   CPU cpu = CPU(pci);
 
-  while(!cpu.next()) {};
-
-  int x = 3;
+  while(!cpu.next());
 
   return 0;
 }
