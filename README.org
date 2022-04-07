@@ -1,7 +1,7 @@
-#+html: <img src="https://github.com/repelliuss/.github/blob/c1bf1af2975e29e89a432001cd4a49091b159839/ps1time/emu-animal.jpg" align="right" width="30%">
+#+html: <img src="https://github.com/repelliuss/.github/blob/c1bf1af2975e29e89a432001cd4a49091b159839/ps1time/emu-animal.jpg" align="right" width="33%">
 
 #+begin_quote
-You traveled in time and Playstation 1 just released
+You traveled in time and Playstation 1 is just released
 #+end_quote
 
 This project is in active and early development stage. I follow several documentations: [[https://problemkaputt.de/psx-spx.htm][Nocash PSX specifications]], [[https://github.com/simias/psx-guide][Simias's guide]]... I also plan to create a guide in the future.
