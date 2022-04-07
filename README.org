@@ -4,4 +4,4 @@
 You traveled in time and Playstation 1 is just released
 #+end_quote
 
-This project is in active and early development stage. I follow several documentations: [[https://problemkaputt.de/psx-spx.htm][Nocash PSX specifications]], [[https://github.com/simias/psx-guide][Simias's guide]]... I also plan to create a guide in the future.
+This project is in active and early development stage. I follow several documentations: [[https://problemkaputt.de/psx-spx.htm][Nocash PSX specifications]], [[https://github.com/simias/psx-guide][Simias's guide]] and more. I also plan to create a guide in the future.
