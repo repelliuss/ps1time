@@ -28,6 +28,7 @@ enum struct Cause : u32 {
   unaligned_load_addr = 0x4,
   unaligned_store_addr = 0x5,
   brek = 0x9, //break
+  unimplemented_coprocessor = 0xb,
 };
 
 struct CPU {
@@ -66,6 +67,9 @@ struct CPU {
   int decode_execute(const Instruction& instruction);
   int decode_execute_sub(const Instruction& instruction); // TODO: to static
   int decode_execute_cop0(const Instruction& instruction); // TODO: to static
+  int decode_execute_cop1(const Instruction& instruction); // TODO: to static
+  int decode_execute_cop2(const Instruction& instruction); // TODO: to static
+  int decode_execute_cop3(const Instruction& instruction); // TODO: to static
 
   void branch(u32 offset);
   int exception(const Cause &cause);
@@ -128,6 +132,10 @@ struct CPU {
   int mult(const Instruction &instruction);
   int sub(const Instruction &instruction);
   int xori(const Instruction &instruction);
+  int lwl(const Instruction &instruction);
+  int lwr(const Instruction &instruction);
+  int swl(const Instruction &instruction);
+  int swr(const Instruction &instruction);
   
   // TODO: may move cop0 instructions to its own
   

@@ -5,8 +5,6 @@
 
 // little endian
 u32 load32(u8 *data, u32 index) {
-  assert(index % 4 == 0);
-
   // REVIEW: may require casts to u32
   u32 b0 = data[index];
   u32 b1 = data[index + 1];
@@ -17,8 +15,6 @@ u32 load32(u8 *data, u32 index) {
 }
 
 u16 load16(u8 *data, u32 index) {
-  assert(index % 2 == 0);
-
   u16 b0 = data[index];
   u16 b1 = data[index + 1];
 
@@ -28,8 +24,6 @@ u16 load16(u8 *data, u32 index) {
 u8 load8(u8 *data, u32 index) { return data[index]; }
 
 void store32(u8 *data, u32 value, u32 index) {
-  assert(index % 4 == 0);
-
   // REVIEW: is & required here?
   // REVIEW: may require casts to u8
   data[index] = value & 0xff;
@@ -39,8 +33,6 @@ void store32(u8 *data, u32 value, u32 index) {
 }
 
 void store16(u8 *data, u16 value, u32 index) {
-  assert(index % 2 == 0);
-
   data[index] = value & 0xff;
   data[index + 1] = value >> 8;
 }

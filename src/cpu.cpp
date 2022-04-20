@@ -110,6 +110,19 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
   return -1;
 }
 
+int CPU::decode_execute_cop1(const Instruction &instruction) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
+int CPU::decode_execute_cop2(const Instruction &instruction) {
+  printf("unhandled GTE instruction: %x\n", instruction.data);
+  return -1;
+}
+
+int CPU::decode_execute_cop3(const Instruction &instruction) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
 int CPU::decode_execute_sub(const Instruction &instruction) {
   switch (instruction.funct()) {
   case 0x22:
@@ -178,6 +191,22 @@ int CPU::decode_execute(const Instruction &instruction) {
   switch (instruction.opcode()) {
   case 0b000000:
     return decode_execute_sub(instruction);
+  case 0x10:
+    return decode_execute_cop0(instruction);
+  case 0x11:
+    return decode_execute_cop1(instruction);
+  case 0x12:
+    return decode_execute_cop2(instruction);
+  case 0x13:
+    return decode_execute_cop3(instruction);
+  case 0x2a:
+    return swl(instruction);
+  case 0x2e:
+    return swr(instruction);
+  case 0x22:
+    return lwl(instruction);
+  case 0x26:
+    return lwr(instruction);
   case 0xe:
     return xori(instruction);
   case 0x21:
@@ -216,8 +245,6 @@ int CPU::decode_execute(const Instruction &instruction) {
   case 0x2:
     j(instruction);
     return 0;
-  case 0x10:
-    return decode_execute_cop0(instruction);
   case 0x5:
     return bne(instruction);
   case 0x8:
@@ -488,7 +515,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   }
 }
 
-static u32 lw_data(PCIMatch match, u8 *data, u32 offset) {
+static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
     return 0;
@@ -527,7 +554,7 @@ int CPU::lw(const Instruction &i) {
     return 0;
   
   pending_load.reg_index = i.rt();
-  pending_load.val = lw_data(match, data, offset);
+  pending_load.val = load32_data(match, data, offset);
 
   return 0;
 }
@@ -720,7 +747,6 @@ int CPU::mfc0(const Instruction &i) {
 
   u32 cop_r = i.rd();
   u32 val;
-
 
   switch (cop_r) {
   case COP0::index_sr:
@@ -1093,5 +1119,207 @@ int CPU::sub(const Instruction &i) {
 
 int CPU::xori(const Instruction &i) {
   set_reg(i.rt(), reg(i.rs()) ^ i.imm16());
+  return 0;
+}
+
+int CPU::lwl(const Instruction &i) {
+  u8 *data;
+  u32 offset;
+  u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
+
+  //bypass load delay restriction. instruction will merge new contents
+  // with the value currently being loaded if need be.
+  u32 cur_val = out_regs[i.rt()];
+  
+  u32 aligned_addr = unaligned_addr & 0b00;
+
+  PCIMatch match = pci.match(data, offset, aligned_addr);
+
+  if (match == PCIMatch::none)
+    return -1;
+
+  int status = load32_prohibited(match, offset, aligned_addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+  
+  u32 aligned_word = load32_data(match, data, offset);
+
+  pending_load.reg_index = i.rt();
+  switch (unaligned_addr & 0b11) {
+  case 0:
+    pending_load.val = (cur_val & 0x00ffffff) | (aligned_word << 24);
+    break;
+  case 1:
+    pending_load.val = (cur_val & 0x0000ffff) | (aligned_word << 16);
+    break;
+  case 2:
+    pending_load.val = (cur_val & 0x000000ff) | (aligned_word << 8);
+    break;
+  case 3:
+    pending_load.val = (cur_val & 0x00000000) | aligned_word;
+    break;
+  }
+
+  return 0;
+}
+
+// TODO: duplicates code with lwl
+int CPU::lwr(const Instruction &i) {
+  u8 *data;
+  u32 offset;
+  u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
+
+  // bypass load delay restriction. instruction will merge new contents
+  // with the value currently being loaded if need be.
+  u32 cur_val = out_regs[i.rt()];
+
+  u32 aligned_addr = unaligned_addr & 0b00;
+
+  PCIMatch match = pci.match(data, offset, aligned_addr);
+
+  if (match == PCIMatch::none)
+    return -1;
+
+  int status = load32_prohibited(match, offset, aligned_addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  u32 aligned_word = load32_data(match, data, offset);
+
+  pending_load.reg_index = i.rt();
+  switch (unaligned_addr & 0b11) {
+  case 0:
+    pending_load.val = (cur_val & 0x00000000) | aligned_word;
+    break;
+  case 1:
+    pending_load.val = (cur_val & 0xff000000) | (aligned_word >> 8);
+    break;
+  case 2:
+    pending_load.val = (cur_val & 0xffff0000) | (aligned_word >> 16);
+    break;
+  case 3:
+    pending_load.val = (cur_val & 0xffffff00) | (aligned_word >> 24);
+    break;
+  }
+
+  return 0;
+}
+
+int CPU::swl(const Instruction &i) {
+  // TODO: duplicate
+  if (cache_isolated()) {
+    printf("Ignoring store while cache is isolated\n");
+    return 0;
+  }
+  
+  u8 *data;
+  u32 offset;
+  int status;
+  u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
+  u32 cur_reg_val = reg(i.rt());
+  u32 aligned_addr = unaligned_addr & 0b00;
+  PCIMatch match = pci.match(data, offset, aligned_addr);
+
+  if (match == PCIMatch::none)
+    return -1;
+
+  status = load32_prohibited(match, offset, aligned_addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  u32 cur_mem_val = load32_data(match, data, offset);
+  u32 new_mem_val;
+
+  switch (unaligned_addr & 0b11) {
+  case 0:
+    new_mem_val = (cur_mem_val & 0xffffff00) | (cur_reg_val >> 24);
+    break;
+  case 1:
+    new_mem_val = (cur_mem_val & 0xffff0000) | (cur_reg_val >> 16);
+    break;
+  case 2:
+    new_mem_val = (cur_mem_val & 0xff000000) | (cur_reg_val >> 8);
+    break;
+  case 3:
+    new_mem_val = (cur_mem_val & 0x00000000) | cur_reg_val;
+    break;
+  }
+
+  match = pci.match(data, offset, unaligned_addr);
+  if (match == PCIMatch::none)
+    return -1;
+
+  status = store32_prohibited(match, offset, new_mem_val, unaligned_addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  store32(data, new_mem_val, offset);
+
+  return 0;
+}
+
+int CPU::swr(const Instruction &i) {
+  // TODO: duplicate
+  if (cache_isolated()) {
+    printf("Ignoring store while cache is isolated\n");
+    return 0;
+  }
+  
+  u8 *data;
+  u32 offset;
+  int status;
+  u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
+  u32 cur_reg_val = reg(i.rt());
+  u32 aligned_addr = unaligned_addr & 0b00;
+  PCIMatch match = pci.match(data, offset, aligned_addr);
+
+  if (match == PCIMatch::none)
+    return -1;
+
+  status = load32_prohibited(match, offset, aligned_addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  u32 cur_mem_val = load32_data(match, data, offset);
+  u32 new_mem_val;
+
+  switch (unaligned_addr & 0b11) {
+  case 0:
+    new_mem_val = (cur_mem_val & 0x00000000) | cur_reg_val;
+    break;
+  case 1:
+    new_mem_val = (cur_mem_val & 0x000000ff) | (cur_reg_val << 8);
+    break;
+  case 2:
+    new_mem_val = (cur_mem_val & 0x0000ffff) | (cur_reg_val << 16);
+    break;
+  case 3:
+    new_mem_val = (cur_mem_val & 0x00ffffff) | (cur_reg_val << 24);
+    break;
+  }
+
+  match = pci.match(data, offset, unaligned_addr);
+  if (match == PCIMatch::none)
+    return -1;
+
+  status = store32_prohibited(match, offset, new_mem_val, unaligned_addr);
+  if (status < 0)
+    return -1;
+  if (status == 1)
+    return 0;
+
+  
+  store32(data, new_mem_val, offset);
+
   return 0;
 }
