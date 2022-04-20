@@ -291,6 +291,10 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     printf("DMA write: %08x %08x\n", addr, val);
     return 1;
 
+  case PCIMatch::gpu:
+    printf("GPU write %08x: %08x\n", offset, val);
+    return 1;
+
   case PCIMatch::mem_ctrl:
     switch (offset) {
     case 0:
@@ -450,6 +454,7 @@ int CPU::addi(const Instruction &i) {
 
 // NOTE: LW and LB didn't have cache_isolated check?
 
+// 0 okay, 1 ignored, negative error
 static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
   case PCIMatch::bios:
@@ -460,6 +465,9 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     return 1;
   case PCIMatch::dma:
     printf("DMA read %08x\n", addr);
+    return 1;
+  case PCIMatch::gpu:
+    printf("GPU read %08x\n", offset);
     return 1;
   default:
     printf("unhandled load32 at address %08x\n", addr);

@@ -22,6 +22,7 @@ enum struct PCIMatch {
   irq,
   timers,
   dma,
+  gpu,
 };
 
 // TODO: may remove size constants
@@ -109,6 +110,12 @@ struct DMA {
   u8 data[size];
 };
 
+struct GPU {
+  static constexpr u32 size = 16;
+  static constexpr Range range = {0x1f801810, 0x1f801820};
+  u8 data[size];
+};
+
 // TODO: we should really consider our PCI implementation
 // TODO: should only be moved not copied due to HeapByteData implementation, double free may add NULL check?
 // Peripheral Component Interconnect
@@ -124,6 +131,7 @@ struct PCI {
   IRQ irq;
   Timers timers;
   DMA dma;
+  GPU gpu;
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
 };

@@ -89,6 +89,12 @@ PCIMatch PCI::match(u8*& out_data, u32& offset, u32 addr) {
     return PCIMatch::dma;
   }
 
+  if (!GPU::range.offset(offset, addr)) {
+    log_pci("PCI::GPU matched!\n");
+    out_data = gpu.data;
+    return PCIMatch::gpu;
+  }
+
   // TODO: remove printf
   printf("No PCIMatch for addr: %#8x\n", addr);
   
