@@ -520,7 +520,7 @@ int CPU::addu(const Instruction &i) {
   return 0;
 }
 
-static int store16_prohibited(PCIMatch match, u32 offset, u32 addr) {
+static int store16_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
   switch (match) {
   case PCIMatch::ram:
     return 0;
@@ -531,6 +531,10 @@ static int store16_prohibited(PCIMatch match, u32 offset, u32 addr) {
 
   case PCIMatch::timers:
     printf("Unhandled write to timer register %x\n", offset);
+    return 1;
+
+  case PCIMatch::irq:
+    printf("IRQ control write %x, %04x\n", offset, val);
     return 1;
 
   default:
@@ -561,7 +565,7 @@ int CPU::sh(const Instruction &i) {
   if (match == PCIMatch::none)
     return -1;
 
-  int status = store16_prohibited(match, offset, addr);
+  int status = store16_prohibited(match, offset, value, addr);
   if (status < 0)
     return -1;
   if (status == 1)
@@ -929,6 +933,11 @@ static int load16_prohibited(PCIMatch match, u32 offset, u32 addr) {
   case PCIMatch::ram:
   case PCIMatch::spu: // NOTE: requires specific load value
     return 0;
+    
+  case PCIMatch::irq:
+    printf("IRQ control read %x\n", offset);
+    return 1;
+
   default:
     printf("unhandled load16 at address %08x\n", addr);
     return -1;
