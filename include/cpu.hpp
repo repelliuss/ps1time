@@ -27,6 +27,7 @@ enum struct Cause : u32 {
   overflow = 0xc,
   unaligned_load_addr = 0x4,
   unaligned_store_addr = 0x5,
+  brek = 0x9, //break
 };
 
 struct CPU {
@@ -122,7 +123,12 @@ struct CPU {
   int srav(const Instruction &instruction);
   int srlv(const Instruction &instruction);
   int multu(const Instruction &instruction);
-
+  int ins_xor(const Instruction &instruction);
+  int ins_break(const Instruction &instruction);
+  int mult(const Instruction &instruction);
+  int sub(const Instruction &instruction);
+  int xori(const Instruction &instruction);
+  
   // TODO: may move cop0 instructions to its own
   
   bool cache_isolated();

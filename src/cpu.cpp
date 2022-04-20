@@ -112,6 +112,14 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
 
 int CPU::decode_execute_sub(const Instruction &instruction) {
   switch (instruction.funct()) {
+  case 0x22:
+    return sub(instruction);
+  case 0x18:
+    return mult(instruction);
+  case 0xd:
+    return ins_break(instruction);
+  case 0x26:
+    return ins_xor(instruction);
   case 0x19:
     return multu(instruction);
   case 0x06:
@@ -170,6 +178,8 @@ int CPU::decode_execute(const Instruction &instruction) {
   switch (instruction.opcode()) {
   case 0b000000:
     return decode_execute_sub(instruction);
+  case 0xe:
+    return xori(instruction);
   case 0x21:
     return lh(instruction);
   case 0x25:
@@ -289,6 +299,10 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
 
   case PCIMatch::dma:
     printf("DMA write: %08x %08x\n", addr, val);
+    return 1;
+
+  case PCIMatch::timers:
+    printf("Unhandled write to timer register %x: %08x\n", offset, val);
     return 1;
 
   case PCIMatch::gpu:
@@ -438,7 +452,6 @@ int CPU::bne(const Instruction &i) {
 }
 
 int CPU::addi(const Instruction &i) {
-
   i32 sum;
   u32 rs_v = reg(i.rs());
   u32 imm = i.imm16_se();
@@ -479,6 +492,15 @@ static u32 lw_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
     return 0;
+    
+  case PCIMatch::gpu:
+    printf("GPU read %x\n", offset);
+    if(offset == 4) {
+      return 0x10000000;
+    }
+
+    return 0;
+    
   default:
     return load32(data, offset);
   }
@@ -1036,5 +1058,40 @@ int CPU::multu(const Instruction &i) {
   hi = val >> 32;
   lo = val;
 
+  return 0;
+}
+
+int CPU::ins_xor(const Instruction &i) {
+  set_reg(i.rd(), reg(i.rs()) ^ reg(i.rt()));
+  return 0;
+}
+
+int CPU::ins_break(const Instruction &i) { return exception(Cause::brek); }
+
+int CPU::mult(const Instruction &i) {
+  i64 rs_val = static_cast<i32>(reg(i.rs()));
+  i64 rt_val = static_cast<i32>(reg(i.rt()));
+  u64 val = rs_val * rt_val;
+
+  hi = val >> 32;
+  lo = val;
+
+  return 0;
+}
+
+int CPU::sub(const Instruction &i) {
+  i32 sum;
+
+  if (checked_sum(sum, reg(i.rs()), reg(i.rt()))) {
+    return exception(Cause::overflow);
+  }
+
+  set_reg(i.rd(), sum);
+
+  return 0;
+}
+
+int CPU::xori(const Instruction &i) {
+  set_reg(i.rt(), reg(i.rs()) ^ i.imm16());
   return 0;
 }
