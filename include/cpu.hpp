@@ -136,6 +136,15 @@ struct CPU {
   int lwr(const Instruction &instruction);
   int swl(const Instruction &instruction);
   int swr(const Instruction &instruction);
+  int lwc0(const Instruction &instruction);
+  int lwc1(const Instruction &instruction);
+  int lwc2(const Instruction &instruction);
+  int lwc3(const Instruction &instruction);
+  int swc0(const Instruction &instruction);
+  int swc1(const Instruction &instruction);
+  int swc2(const Instruction &instruction);
+  int swc3(const Instruction &instruction);
+  
   
   // TODO: may move cop0 instructions to its own
   

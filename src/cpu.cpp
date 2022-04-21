@@ -199,6 +199,22 @@ int CPU::decode_execute(const Instruction &instruction) {
     return decode_execute_cop2(instruction);
   case 0x13:
     return decode_execute_cop3(instruction);
+  case 0x30:
+    return lwc0(instruction);
+  case 0x31:
+    return lwc1(instruction);
+  case 0x32:
+    return lwc2(instruction);
+  case 0x33:
+    return lwc3(instruction);
+  case 0x38:
+    return swc0(instruction);
+  case 0x39:
+    return swc1(instruction);
+  case 0x3a:
+    return swc2(instruction);
+  case 0x3b:
+    return swc3(instruction);
   case 0x2a:
     return swl(instruction);
   case 0x2e:
@@ -1322,4 +1338,38 @@ int CPU::swr(const Instruction &i) {
   store32(data, new_mem_val, offset);
 
   return 0;
+}
+
+int CPU::lwc0(const Instruction &i) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
+int CPU::lwc1(const Instruction &i) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
+int CPU::lwc2(const Instruction &i) {
+  printf("unhandled GTE LWC: %x\n", i.data);
+  return -1;
+}
+
+int CPU::lwc3(const Instruction &i) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
+int CPU::swc0(const Instruction &i) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
+int CPU::swc1(const Instruction &i) {
+  return exception(Cause::unimplemented_coprocessor);
+}
+
+int CPU::swc2(const Instruction &i) {
+  printf("unhandled GTE SWC: %x\n", i.data);
+  return -1;
+}
+
+int CPU::swc3(const Instruction &i) {
+  return exception(Cause::unimplemented_coprocessor);
 }
