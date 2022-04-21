@@ -107,7 +107,8 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
     return rfe(instruction);
   }
 
-  return -1;
+  printf("Illegal instruction %x!\n", instruction.data);
+  return exception(Cause::illegal_instruction);
 }
 
 int CPU::decode_execute_cop1(const Instruction &instruction) {
@@ -184,7 +185,8 @@ int CPU::decode_execute_sub(const Instruction &instruction) {
     return jr(instruction);
   }
 
-  return -1;
+  printf("Illegal instruction %x!\n", instruction.data);
+  return exception(Cause::illegal_instruction);
 }
 
 int CPU::decode_execute(const Instruction &instruction) {
@@ -275,7 +277,8 @@ int CPU::decode_execute(const Instruction &instruction) {
     return beq(instruction);
   }
 
-  return -1;
+  printf("Illegal instruction %x!\n", instruction.data);
+  return exception(Cause::illegal_instruction);
 }
 
 int CPU::exception(const Cause &cause) {

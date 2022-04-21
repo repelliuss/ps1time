@@ -29,6 +29,7 @@ enum struct Cause : u32 {
   unaligned_store_addr = 0x5,
   brek = 0x9, //break
   unimplemented_coprocessor = 0xb,
+  illegal_instruction = 0xa,
 };
 
 struct CPU {
