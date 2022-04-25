@@ -344,8 +344,14 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     return 1;
 
   case PCIMatch::dma:
-    printf("DMA write: %08x %08x\n", addr, val);
-    return 1;
+    switch(offset) {
+    case DMA::reg_control:
+    case DMA::reg_interrupt:
+      return 0;
+    default:
+      printf("unhandled DMA write access\n");
+      return -1;
+    }
 
   case PCIMatch::timers:
     printf("Unhandled write to timer register %x: %08x\n", offset, val);
@@ -414,7 +420,7 @@ int CPU::sw(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  store32(data, value, offset);
+  pci.store32_data(match, data, offset, value);
 
   return 0;
 }
@@ -522,9 +528,18 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   case PCIMatch::irq:
     printf("IRQ control read %x\n", offset);
     return 1;
+
   case PCIMatch::dma:
-    printf("DMA read %08x\n", addr);
-    return 1;
+    switch(offset) {
+    case DMA::reg_control:
+    case DMA::reg_interrupt:
+      return 0;
+    default:
+      printf("offset: %x\n", offset);
+      printf("unhandled DMA access\n");
+      return -1;
+    }
+    
   case PCIMatch::gpu:
     printf("GPU read %08x\n", offset);
     return 1;
@@ -656,7 +671,7 @@ int CPU::andi(const Instruction &i) {
   return 0;
 }
 
-static int sb_prohibited(PCIMatch match, u32 offset, u32 addr) {
+static int store8_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
   case PCIMatch::ram:
     return 0;
@@ -687,7 +702,7 @@ int CPU::sb(const Instruction &i) {
   if (match == PCIMatch::none)
     return -1;
 
-  int status = sb_prohibited(match, offset, addr);
+  int status = store8_prohibited(match, offset, addr);
   if (status < 0)
     return -1;
   if (status == 1)
@@ -719,7 +734,7 @@ static int load8_prohibited(PCIMatch match, u32 offset, u32 addr) {
 }
 
 // NOTE: only used for lbu, may require specific lb
-static u8 lb_data(PCIMatch match, u8 *data, u32 offset) {
+static u8 load8_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
     // NOTE: lb expansion1 always return 1
   case PCIMatch::expansion1:
@@ -748,7 +763,7 @@ int CPU::lb(const Instruction &i) {
 
   // byte is sign extended, so we are being careful
   pending_load.val =
-      static_cast<u32>(static_cast<i8>(lb_data(match, data, offset)));
+      static_cast<u32>(static_cast<i8>(load8_data(match, data, offset)));
 
   return 0;
 }
@@ -833,7 +848,7 @@ int CPU::lbu(const Instruction &i) {
     return 0;
 
   pending_load.reg_index = i.rt();
-  pending_load.val = lb_data(match, data, offset);
+  pending_load.val = load8_data(match, data, offset);
 
   return 0;
 }
@@ -1011,8 +1026,7 @@ static int load16_prohibited(PCIMatch match, u32 offset, u32 addr) {
   }
 }
 
-// NOTE: used only for lhu may require specific lh
-static u16 lh_data(PCIMatch match, u8 *data, u32 offset) {
+static u16 load16_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
     // NOTE: lh spu always return 0
   case PCIMatch::spu:
@@ -1043,7 +1057,7 @@ int CPU::lhu(const Instruction &i) {
     return 0;
 
   pending_load.reg_index = i.rt();
-  pending_load.val = lh_data(match, data, offset);
+  pending_load.val = load16_data(match, data, offset);
 
   return 0;
 }
@@ -1075,7 +1089,7 @@ int CPU::lh(const Instruction &i) {
     return 0;
 
   pending_load.reg_index = i.rt();
-  pending_load.val = static_cast<i16>(lh_data(match, data, offset));
+  pending_load.val = static_cast<i16>(load16_data(match, data, offset));
 
   return 0;
 }

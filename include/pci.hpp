@@ -3,6 +3,7 @@
 #include "bios.hpp"
 #include "range.hpp"
 #include "types.hpp"
+#include "dma.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -104,12 +105,6 @@ struct Timers {
   u8 data[size];
 };
 
-struct DMA {
-  static constexpr u32 size = 0x80;
-  static constexpr Range range = {0x1f801080, 0x1f801100};
-  u8 data[size];
-};
-
 struct GPU {
   static constexpr u32 size = 16;
   static constexpr Range range = {0x1f801810, 0x1f801820};
@@ -134,4 +129,5 @@ struct PCI {
   GPU gpu;
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
+  void store32_data(PCIMatch match, u8 *data, u32 offset, u32 val);
 };
