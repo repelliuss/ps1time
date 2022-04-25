@@ -107,7 +107,7 @@ void PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
     
   case PCIMatch::dma:
     switch (offset) {
-    case DMA::reg_interrupt:
+    case DMA::reg::interrupt:
       dma.set_interrupt(val);
       break;
     default:

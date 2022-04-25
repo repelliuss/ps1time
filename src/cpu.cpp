@@ -345,10 +345,37 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
 
   case PCIMatch::dma:
     switch(offset) {
-    case DMA::reg_control:
-    case DMA::reg_interrupt:
+    case DMA::reg::control:
+    case DMA::reg::interrupt:
+
+    case DMA::reg::mdecin_base_address:
+    case DMA::reg::mdecout_base_address:
+    case DMA::reg::gpu_base_address:
+    case DMA::reg::cdrom_base_address:
+    case DMA::reg::spu_base_address:
+    case DMA::reg::pio_base_address:
+    case DMA::reg::otc_base_address:
+
+    case DMA::reg::mdecin_block_control:
+    case DMA::reg::mdecout_block_control:
+    case DMA::reg::gpu_block_control:
+    case DMA::reg::cdrom_block_control:
+    case DMA::reg::spu_block_control:
+    case DMA::reg::pio_block_control:
+    case DMA::reg::otc_block_control:
+
+    case DMA::reg::mdecin_channel_control:
+    case DMA::reg::mdecout_channel_control:
+    case DMA::reg::gpu_channel_control:
+    case DMA::reg::cdrom_channel_control:
+    case DMA::reg::spu_channel_control:
+    case DMA::reg::pio_channel_control:
+    case DMA::reg::otc_channel_control:
+      
       return 0;
     default:
+      printf("offset: %x\n", offset);
+      printf("val: %x\n", val);
       printf("unhandled DMA write access\n");
       return -1;
     }
@@ -531,9 +558,34 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
 
   case PCIMatch::dma:
     switch(offset) {
-    case DMA::reg_control:
-    case DMA::reg_interrupt:
+    case DMA::reg::control:
+    case DMA::reg::interrupt:
+
+    case DMA::reg::mdecin_base_address:
+    case DMA::reg::mdecout_base_address:
+    case DMA::reg::gpu_base_address:
+    case DMA::reg::cdrom_base_address:
+    case DMA::reg::spu_base_address:
+    case DMA::reg::pio_base_address:
+    case DMA::reg::otc_base_address:
+
+    case DMA::reg::mdecin_block_control:
+    case DMA::reg::mdecout_block_control:
+    case DMA::reg::gpu_block_control:
+    case DMA::reg::cdrom_block_control:
+    case DMA::reg::spu_block_control:
+    case DMA::reg::pio_block_control:
+    case DMA::reg::otc_block_control:
+
+    case DMA::reg::mdecin_channel_control:
+    case DMA::reg::mdecout_channel_control:
+    case DMA::reg::gpu_channel_control:
+    case DMA::reg::cdrom_channel_control:
+    case DMA::reg::spu_channel_control:
+    case DMA::reg::pio_channel_control:
+    case DMA::reg::otc_channel_control:
       return 0;
+      
     default:
       printf("offset: %x\n", offset);
       printf("unhandled DMA access\n");
