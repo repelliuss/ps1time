@@ -2,11 +2,13 @@
 
 #include "types.hpp"
 #include "range.hpp"
+#include "ram.hpp"
 
 struct DMA {
   static constexpr u32 size = 0x80;
   static constexpr Range range = {0x1f801080, 0x1f801100};
 
+  // TODO: remove struct, prefix reg_ not really a type
   struct reg {
     static constexpr u32 control = 0x70;
     static constexpr u32 interrupt = 0x74;
@@ -42,7 +44,7 @@ struct DMA {
   // +8 to get channel control
   // +4 to get block control
   // +0 to get base address
-  enum struct Port : u32 {
+  enum struct Channel : u32 {
     MdecIn = 0x00,
     MdecOut = 0x10,
     GPU = 0x20,
@@ -51,15 +53,21 @@ struct DMA {
     PIO = 0x50,
     OTC = 0x60,
   };
+  static Channel channel_from_dma_reg(u32 offset);  // TODO: should not be really needed
+  
+  u32 channel_control(Channel channel);
+  u32 channel_block(Channel channel);
+  u32 channel_base_address(Channel channel);
 
   u8 data[size] = {0};
+  RAM &ram;
 
-  DMA();
+  DMA(RAM &ram);
 
   //reg::interrupt
   bool irq_active();
   void set_interrupt(u32 val);
 
-  //reg::.*_channel_control
-  
+  //may only be called reg::.*_channel_control when written
+  int channel_try_transfer(u32 dma_reg);
 };

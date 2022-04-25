@@ -3,7 +3,9 @@
 #include "bios.hpp"
 #include "range.hpp"
 #include "types.hpp"
+#include "heap_byte_data.hpp"
 #include "dma.hpp"
+#include "ram.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -27,27 +29,6 @@ enum struct PCIMatch {
 };
 
 // TODO: may remove size constants
-
-struct HeapByteData {
-  u8 *data;
-
-  HeapByteData(u32 size) { data = static_cast<u8 *>(malloc(sizeof(u8) * size)); }
-  
-  HeapByteData(u32 size, u8 val) : HeapByteData(size) {
-    memset(data, val, sizeof(u8) * size);
-  }
-
-  ~HeapByteData() {
-    free(data);
-    data = nullptr;
-  }
-};
-
-struct RAM : HeapByteData {
-  static constexpr u32 size = 2097152; // 2MB
-  static constexpr Range range = {0x00000000, 0x00200000};
-  RAM() : HeapByteData(size, 0xca) {} // initial garbage content value
-};
 
 // This is not our ram size, but a register that is being set in hw_regs area    
 struct RamSize {
@@ -127,7 +108,9 @@ struct PCI {
   Timers timers;
   DMA dma;
   GPU gpu;
+
+  PCI() : dma(ram) {}
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
-  void store32_data(PCIMatch match, u8 *data, u32 offset, u32 val);
+  int store32_data(PCIMatch match, u8 *data, u32 offset, u32 val);
 };

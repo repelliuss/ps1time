@@ -102,7 +102,7 @@ PCIMatch PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
   return PCIMatch::none;
 }
 
-void PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
+int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
   switch (match) {
     
   case PCIMatch::dma:
@@ -110,12 +110,27 @@ void PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
     case DMA::reg::interrupt:
       dma.set_interrupt(val);
       break;
+
+    case DMA::reg::mdecin_channel_control:
+    case DMA::reg::mdecout_channel_control:
+    case DMA::reg::gpu_channel_control:
+    case DMA::reg::cdrom_channel_control:
+    case DMA::reg::spu_channel_control:
+    case DMA::reg::pio_channel_control:
+    case DMA::reg::otc_channel_control:
+      store32(data, val, offset);
+      dma.channel_try_transfer(offset);
+      break;
+
     default:
       store32(data, val, offset);
+      break;
     }
 
   default:
     store32(data, val, offset);
     break;
   }
+
+  return 0;
 }

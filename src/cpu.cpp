@@ -347,7 +347,9 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     switch(offset) {
     case DMA::reg::control:
     case DMA::reg::interrupt:
+      return 0;
 
+      // channels
     case DMA::reg::mdecin_base_address:
     case DMA::reg::mdecout_base_address:
     case DMA::reg::gpu_base_address:
@@ -371,8 +373,8 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     case DMA::reg::spu_channel_control:
     case DMA::reg::pio_channel_control:
     case DMA::reg::otc_channel_control:
-      
       return 0;
+
     default:
       printf("offset: %x\n", offset);
       printf("val: %x\n", val);
@@ -432,10 +434,10 @@ int CPU::sw(const Instruction &i) {
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 value = reg(i.rt());
 
-  if(addr % 4 != 0) {
+  if (addr % 4 != 0) {
     return exception(Cause::unaligned_store_addr);
   }
-  
+
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
@@ -447,9 +449,7 @@ int CPU::sw(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  pci.store32_data(match, data, offset, value);
-
-  return 0;
+  return pci.store32_data(match, data, offset, value);
 }
 
 void CPU::sll(const Instruction &i) {
