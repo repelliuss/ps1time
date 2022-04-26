@@ -52,10 +52,6 @@ int CPU::next() {
   int cpu_fetch_result = fetch(instruction.data, pc);
   assert(cpu_fetch_result == 0);
 
-  if(pc == 0x00001530) {
-    printf("HElllooo!!\n");
-  }
-
   in_delay_slot = branch_ocurred;
   branch_ocurred = false;
 
@@ -558,9 +554,10 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   case PCIMatch::bios:
   case PCIMatch::ram:
     return 0;
-  case PCIMatch::irq:
+    // may put info messages to .*_data fns
+  case PCIMatch::irq: // NOTE: requires specific value
     printf("IRQ control read %x\n", offset);
-    return 1;
+    return 0;
 
   case PCIMatch::dma:
     switch(offset) {
@@ -610,6 +607,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
 static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
+  case PCIMatch::dma:
     return 0;
     
   case PCIMatch::gpu:
@@ -794,7 +792,7 @@ static int load8_prohibited(PCIMatch match, u32 offset, u32 addr) {
 // NOTE: only used for lbu, may require specific lb
 static u8 load8_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
-    // NOTE: lb expansion1 always return 1
+    // NOTE: lb expansion1 always return all 1s
   case PCIMatch::expansion1:
     return 0xff;
   default:
