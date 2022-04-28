@@ -596,8 +596,9 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     }
     
   case PCIMatch::gpu:
-    printf("GPU read %08x\n", offset);
-    return 1;
+    printf("GPU read %d\n", offset);
+    return 0;
+    
   default:
     printf("unhandled load32 at address %08x\n", addr);
     return -1;
@@ -610,7 +611,6 @@ static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
     return 0;
     
   case PCIMatch::gpu:
-    printf("GPU read %x\n", offset);
     if(offset == 4) {
       return 0x10000000;
     }
