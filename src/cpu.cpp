@@ -617,7 +617,7 @@ static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
 
   case PCIMatch::gpu:
     if (offset == 4) {
-      return 0x10000000;
+      return 0x1c000000;
     }
 
     return 0;
