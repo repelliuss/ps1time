@@ -10,6 +10,7 @@ struct DMA {
   static constexpr Range range = {0x1f801080, 0x1f801100};
 
   // TODO: remove struct, prefix reg_ not really a type
+  /// register indexes
   struct reg {
     static constexpr u32 control = 0x70;
     static constexpr u32 interrupt = 0x74;
@@ -64,36 +65,37 @@ struct DMA {
       reserved // not used
     };
 
-    Type type;
-    u32 base_address;
-    u32 block_control;
-    u32 channel_control;
+    // REVIEW: if there becomes many writes to a channel at the same time, it
+    // can be optimized with storing at the end with a function like
+    // sync_to_dma()
 
-    
-    u32 step();
-    bool transfer_triggered();
-    bool transfer_enabled();
-    bool transfer_active();
-    int try_transfer();
-    SyncMode sync_mode();
+    const Type type;
+    const u32 base_address;
+
+    /// [0, 15] contains block_size [16, 31] contains block_count
+    /// for manual sync mode, only block_size is used
+    /// for request sync mode, both used
+    /// others shouldn't need
+    const u32 block_control;
+
+    u8 *channel_control_addr; // NOTE: next 4 words contain channel_control
+    u32 channel_control;      // copied at initialization
   };
-
+  
   u8 data[size] = {0};
   RAM &ram;
 
   DMA(RAM &ram);
 
   Channel make_channel(u32 dma_reg_index); // TODO: should not be really needed
-  constexpr u32 mask_reg_index_to_channel_type_val(u32 reg_index);
 
   //reg::interrupt
-  bool irq_active();
+  bool irq_active(); // TODO: can be private
   void set_interrupt(u32 val);
 
   //reg::*_base_address
   void set_base_addr(u32 base_address_reg_index, u32 val);
 
   //may only be called reg::.*_channel_control when written
-  //int channel_try_transfer(u32 dma_reg);
-  
+  int try_transfer(Channel &channel);
 };

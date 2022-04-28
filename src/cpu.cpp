@@ -72,8 +72,7 @@ int CPU::next() {
 
   int cpu_exec_result = decode_execute(instruction);
   if (cpu_exec_result) {
-    printf("cpu can't exec inst: 0x%08x pc+4: %#08x\n",
-           instruction.data, pc);
+    printf("cpu can't exec inst: 0x%08x pc+4: %#08x\n", instruction.data, pc);
     return -1;
   }
 
@@ -288,11 +287,12 @@ int CPU::exception(const Cause &cause) {
 
   // NOTE: nocash says BEV=1 exception vectors doesn't happen
   // Exception handler address depends on the 'BEV' bit
-  if((cop0.regs[COP0::index_sr] & (1 << 22)) != 0) {
+  if ((cop0.regs[COP0::index_sr] & (1 << 22)) != 0) {
     handler = 0xbfc00180;
+  } else {
+    handler = 0x80000080;
   }
-  else handler = 0x80000080;
-  
+
   // Shift bits [5:0] of `SR` two places to the left. Those bits
   // are three pairs of Interrupt Enable/User Mode bits behaving
   // like a stack 3 entries deep. Entering an exception pushes a
@@ -346,7 +346,7 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     return 1;
 
   case PCIMatch::dma:
-    switch(offset) {
+    switch (offset) {
     case DMA::reg::control:
     case DMA::reg::interrupt:
       return 0;
@@ -560,7 +560,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     return 0;
 
   case PCIMatch::dma:
-    switch(offset) {
+    switch (offset) {
     case DMA::reg::control:
     case DMA::reg::interrupt:
 

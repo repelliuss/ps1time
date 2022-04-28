@@ -5,6 +5,8 @@
 #include <iostream>
 #include <filesystem>
 
+// TODO: printfs to log functions, errors to stderr
+
 int main() {
   Bios bios;
 
