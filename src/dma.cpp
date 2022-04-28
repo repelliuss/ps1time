@@ -75,7 +75,8 @@ void finalize_transfer(DMA::ChannelView &chview) {
 }
 
 void sync(const DMA::ChannelView &chview) {
-  store32(chview.channel_control_addr, chview.channel_control, 0);
+  memcpy(chview.channel_control_addr, &chview.channel_control,
+         sizeof(chview.channel_control));
 }
 
 // NOTE: same as transfer_block_size() but used in SyncMode::manual
@@ -113,7 +114,8 @@ constexpr u32 mask_reg_index_to_chview_type_val(u32 reg_index) {
 constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr) {
   // REVIEW: this value is for end of linked list but a specific loop could be
   // written for OTC which would remove this check
-  // REVIEW: looping by decrementing so 1 is valid, is there a more beautiful way?
+  // REVIEW: looping by decrementing so 1 is valid, is there a more beautiful
+  // way?
   if (remaining_size == 1) {
     return 0xffffff;
   }
@@ -232,6 +234,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
 int transfer(const DMA &dma, DMA::ChannelView &chview) {
   switch (chview::sync_mode(chview)) {
   case DMA::ChannelView::SyncMode::linked_list:
+    printf("Linked list transfer unimplemented!\n");
     return -1;
 
   default:
