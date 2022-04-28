@@ -69,6 +69,8 @@ struct DMA {
     u32 block_control;
     u32 channel_control;
 
+    
+    u32 step();
     bool transfer_triggered();
     bool transfer_enabled();
     bool transfer_active();
@@ -82,10 +84,14 @@ struct DMA {
   DMA(RAM &ram);
 
   Channel make_channel(u32 dma_reg_index); // TODO: should not be really needed
+  constexpr u32 mask_reg_index_to_channel_type_val(u32 reg_index);
 
   //reg::interrupt
   bool irq_active();
   void set_interrupt(u32 val);
+
+  //reg::*_base_address
+  void set_base_addr(u32 base_address_reg_index, u32 val);
 
   //may only be called reg::.*_channel_control when written
   //int channel_try_transfer(u32 dma_reg);

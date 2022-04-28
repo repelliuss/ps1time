@@ -104,11 +104,23 @@ PCIMatch PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
 
 int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
   switch (match) {
-    
+
+    // TODO: logic here can be reduced with constraints to 0xZ0 where Z is
+    // [0,6]?
   case PCIMatch::dma:
     switch (offset) {
     case DMA::reg::interrupt:
       dma.set_interrupt(val);
+      break;
+
+    case DMA::reg::mdecin_base_address:
+    case DMA::reg::mdecout_base_address:
+    case DMA::reg::gpu_base_address:
+    case DMA::reg::cdrom_base_address:
+    case DMA::reg::spu_base_address:
+    case DMA::reg::pio_base_address:
+    case DMA::reg::otc_base_address:
+      dma.set_base_addr(offset, val);
       break;
 
     case DMA::reg::mdecin_channel_control:

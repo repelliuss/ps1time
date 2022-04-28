@@ -29,7 +29,8 @@ static u8 extract_irq_active(u32 interrupt) {
 
 void DMA::set_interrupt(u32 val) {
   u8 irq = extract_irq_active(val);
-  u8 channels_interrupt_ack_status = bits_in_range(data[reg::interrupt], 24, 30);
+  u8 channels_interrupt_ack_status =
+      bits_in_range(data[reg::interrupt], 24, 30);
   u8 new_channels_interrupt_ack_status = bits_in_range(val, 24, 30);
 
   // writing 1 to ack flags resets it
@@ -41,10 +42,23 @@ void DMA::set_interrupt(u32 val) {
   data[reg::interrupt] = val;
 }
 
+constexpr u32 DMA::mask_reg_index_to_channel_type_val(u32 reg_index) {
+  return reg_index & 0xfffffff0;
+}
+
+void DMA::set_base_addr(u32 base_addr_reg_index, u32 val) {
+  assert(0x00 <= base_addr_reg_index && base_addr_reg_index < 0x6a);
+  assert(mask_reg_index_to_channel_type_val(base_addr_reg_index) ==
+         base_addr_reg_index);
+
+  // only 16MB are addressable by DMA, so cut redundant MSBs
+  data[base_addr_reg_index] = val & 0xffffff;
+}
+
 DMA::Channel DMA::make_channel(u32 dma_reg_index) {
-  assert(dma_reg_index >= 0x00 && dma_reg_index < 0x70);
+  assert(dma_reg_index >= 0x00 && dma_reg_index < 0x6a);
   // TODO: check if this is safe and faster than conditionals (all expected)
-  u32 entry_address = dma_reg_index & 0xfffffff0;
+  u32 entry_address = mask_reg_index_to_channel_type_val(dma_reg_index);
 
   return {
       .type = static_cast<Channel::Type>(entry_address),
@@ -52,6 +66,14 @@ DMA::Channel DMA::make_channel(u32 dma_reg_index) {
       .block_control = load32(data, entry_address + 0x4),
       .channel_control = load32(data, entry_address + 0x8),
   };
+}
+
+u32 DMA::Channel::step() {
+  if(bit(channel_control, 1) != 0) {
+    return -4;
+  }
+  
+  return 4; 
 }
 
 bool DMA::Channel::transfer_triggered() {
@@ -83,7 +105,13 @@ DMA::Channel::SyncMode DMA::Channel::sync_mode() {
   }
 }
 
-static int channel_do_dma_block(DMA::Channel &channel) { return -1; }
+static int channel_do_dma_block(DMA::Channel &channel) {
+  u32 step = channel.step();
+
+  u32 addr = channel.base_address;
+
+  return -1;
+}
 
 static int channel_start_transfer(DMA::Channel &channel) {
   switch (channel.sync_mode()) {

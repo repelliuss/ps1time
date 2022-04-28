@@ -598,7 +598,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   case PCIMatch::gpu:
     printf("GPU read %d\n", offset);
     return 0;
-    
+
   default:
     printf("unhandled load32 at address %08x\n", addr);
     return -1;
@@ -609,14 +609,14 @@ static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
     return 0;
-    
+
   case PCIMatch::gpu:
-    if(offset == 4) {
+    if (offset == 4) {
       return 0x10000000;
     }
 
     return 0;
-    
+
   default:
     return load32(data, offset);
   }
@@ -641,7 +641,7 @@ int CPU::lw(const Instruction &i) {
     return -1;
   if (status == 1)
     return 0;
-  
+
   pending_load.reg_index = i.rt();
   pending_load.val = load32_data(match, data, offset);
 
@@ -662,7 +662,7 @@ static int store16_prohibited(PCIMatch match, u32 offset, u32 addr, u16 val) {
   switch (match) {
   case PCIMatch::ram:
     return 0;
-    
+
   case PCIMatch::spu:
     printf("Unhandled write to SPU register %08x: %04x\n", addr, val);
     return 1;
@@ -694,10 +694,10 @@ int CPU::sh(const Instruction &i) {
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 value = reg(i.rt());
 
-  if(addr % 2 != 0) {
+  if (addr % 2 != 0) {
     return exception(Cause::unaligned_store_addr);
   }
-  
+
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
@@ -1029,13 +1029,11 @@ int CPU::slt(const Instruction &i) {
   i32 val = rs_val < rt_val;
 
   set_reg(i.rd(), val);
-  
+
   return 0;
 }
 
-int CPU::syscall(const Instruction &i) {
-  return exception(Cause::syscall);
-}
+int CPU::syscall(const Instruction &i) { return exception(Cause::syscall); }
 
 int CPU::mtlo(const Instruction &i) {
   lo = reg(i.rs());
@@ -1070,7 +1068,7 @@ static int load16_prohibited(PCIMatch match, u32 offset, u32 addr) {
   case PCIMatch::ram:
   case PCIMatch::spu: // NOTE: requires specific load value
     return 0;
-    
+
   case PCIMatch::irq:
     printf("IRQ control read %x\n", offset);
     return 1;
@@ -1096,10 +1094,10 @@ int CPU::lhu(const Instruction &i) {
   u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
 
-  if(addr % 2 != 0) {
+  if (addr % 2 != 0) {
     return exception(Cause::unaligned_load_addr);
   }
-  
+
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
@@ -1128,10 +1126,10 @@ int CPU::lh(const Instruction &i) {
   u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
 
-  if(addr % 2 != 0) {
+  if (addr % 2 != 0) {
     return exception(Cause::unaligned_load_addr);
   }
-  
+
   PCIMatch match = pci.match(data, offset, addr);
 
   if (match == PCIMatch::none)
