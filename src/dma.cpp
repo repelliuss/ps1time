@@ -41,72 +41,68 @@ void DMA::set_interrupt(u32 val) {
   data[reg::interrupt] = val;
 }
 
-DMA::Channel DMA::channel_from_dma_reg(u32 offset) {
-  assert(offset >= 0x00 && offset < 0x70);
+DMA::Channel DMA::make_channel(u32 dma_reg_index) {
+  assert(dma_reg_index >= 0x00 && dma_reg_index < 0x70);
   // TODO: check if this is safe and faster than conditionals (all expected)
-  return static_cast<Channel>(offset & 0xfffffffe);
+  u32 entry_address = dma_reg_index & 0xfffffff0;
+
+  return {
+      .type = static_cast<Channel::Type>(entry_address),
+      .base_address = load32(data, entry_address),
+      .block_control = load32(data, entry_address + 0x4),
+      .channel_control = load32(data, entry_address + 0x8),
+  };
 }
 
-static bool channel_triggered(u32 value) { return bit(value, 28) != 0; }
+bool DMA::Channel::transfer_triggered() {
+  return bit(channel_control, 28) != 0;
+}
 
-enum ChannelSyncMode : u32 {
-  manual,
-  request,
-  linked_list,
-  reserved // not used
-};
+bool DMA::Channel::transfer_enabled() { return bit(channel_control, 24) != 0; }
 
-static ChannelSyncMode channel_sync_mode(u32 value) {
-  switch (bits_in_range(value, 9, 10)) {
+bool DMA::Channel::transfer_active() {
+  if (sync_mode() == SyncMode::manual) {
+    return transfer_enabled() && transfer_triggered();
+  }
+
+  return transfer_enabled();
+}
+
+// TODO: check all asserts and handle more gracefully?
+DMA::Channel::SyncMode DMA::Channel::sync_mode() {
+  switch (bits_in_range(channel_control, 9, 10)) {
   case 0:
-    return ChannelSyncMode::manual;
+    return SyncMode::manual;
   case 1:
-    return ChannelSyncMode::request;
+    return SyncMode::request;
   case 2:
-    return ChannelSyncMode::linked_list;
+    return SyncMode::linked_list;
   default:
     assert(false);
-    return ChannelSyncMode::reserved;
+    return SyncMode::reserved;
   }
 }
 
-static bool channel_enabled(u32 val) { return bit(val, 24) != 0; }
+static int channel_do_dma_block(DMA::Channel &channel) { return -1; }
 
-static bool channel_transfer_active(u32 control_val) {
-  bool enabled = channel_enabled(control_val);
-  
-  if(channel_sync_mode(control_val) == ChannelSyncMode::manual) {
-    return enabled && channel_triggered(control_val);
-  }
+static int channel_start_transfer(DMA::Channel &channel) {
+  switch (channel.sync_mode()) {
+  case DMA::Channel::SyncMode::linked_list:
+    printf("Linked list mode unsupported\n");
+    return -1;
 
-  return enabled;
-}
-
-static int channel_start_transfer(DMA::Channel channel) {
-  //unimplemented do_dma(...)
-  return -1;
-}
-
-int DMA::channel_try_transfer(u32 dma_reg) {
-  DMA::Channel channel = DMA::channel_from_dma_reg(dma_reg);
-  u32 control_val = channel_control(channel);
-  if (channel_transfer_active(control_val)) {
-    printf("transfer...\n");
-    return channel_start_transfer(channel);
+  default:
+    return channel_do_dma_block(channel);
   }
 
   return 0;
 }
 
-// TODO: check all enum declarations 
-u32 DMA::channel_control(Channel channel) {
-  return data[static_cast<u32>(channel) + 0x8];
+int DMA::Channel::try_transfer() {
+  if (transfer_active()) {
+    return channel_start_transfer(*this);
+  }
+
+  return 0;
 }
 
-u32 DMA::channel_block(Channel channel) {
-  return data[static_cast<u32>(channel) + 0x4];
-}
-
-u32 DMA::channel_base_address(Channel channel) {
-  return data[static_cast<u32>(channel)];
-}

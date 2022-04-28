@@ -119,7 +119,7 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
     case DMA::reg::pio_channel_control:
     case DMA::reg::otc_channel_control:
       store32(data, val, offset);
-      dma.channel_try_transfer(offset);
+      return dma.make_channel(offset).try_transfer();
       break;
 
     default:

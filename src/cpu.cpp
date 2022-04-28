@@ -607,7 +607,6 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
 static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
-  case PCIMatch::dma:
     return 0;
     
   case PCIMatch::gpu:

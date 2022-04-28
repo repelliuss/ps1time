@@ -4,6 +4,7 @@
 #include "range.hpp"
 #include "ram.hpp"
 
+
 struct DMA {
   static constexpr u32 size = 0x80;
   static constexpr Range range = {0x1f801080, 0x1f801100};
@@ -39,35 +40,54 @@ struct DMA {
     static constexpr u32 otc_channel_control = 0x68;
   };
 
-  // add offsets to get proper register
-  // for example:
-  // +8 to get channel control
-  // +4 to get block control
-  // +0 to get base address
-  enum struct Channel : u32 {
-    MdecIn = 0x00,
-    MdecOut = 0x10,
-    GPU = 0x20,
-    CDROM = 0x30,
-    SPU = 0x40,
-    PIO = 0x50,
-    OTC = 0x60,
+  struct Channel {
+    // add offsets to get proper register
+    // for example:
+    // +8 to get channel control
+    // +4 to get block control
+    // +0 to get base address
+    // TODO: may be useless, see make_channel
+    enum struct Type : u32 {
+      MdecIn = 0x00,
+      MdecOut = 0x10,
+      GPU = 0x20,
+      CDROM = 0x30,
+      SPU = 0x40,
+      PIO = 0x50,
+      OTC = 0x60,
+    };
+
+    enum struct SyncMode {
+      manual,
+      request,
+      linked_list,
+      reserved // not used
+    };
+
+    Type type;
+    u32 base_address;
+    u32 block_control;
+    u32 channel_control;
+
+    bool transfer_triggered();
+    bool transfer_enabled();
+    bool transfer_active();
+    int try_transfer();
+    SyncMode sync_mode();
   };
-  static Channel channel_from_dma_reg(u32 offset);  // TODO: should not be really needed
-  
-  u32 channel_control(Channel channel);
-  u32 channel_block(Channel channel);
-  u32 channel_base_address(Channel channel);
 
   u8 data[size] = {0};
   RAM &ram;
 
   DMA(RAM &ram);
 
+  Channel make_channel(u32 dma_reg_index); // TODO: should not be really needed
+
   //reg::interrupt
   bool irq_active();
   void set_interrupt(u32 val);
 
   //may only be called reg::.*_channel_control when written
-  int channel_try_transfer(u32 dma_reg);
+  //int channel_try_transfer(u32 dma_reg);
+  
 };
