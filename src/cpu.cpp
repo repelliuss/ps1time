@@ -25,6 +25,8 @@ void CPU::dump() {
            in_regs[r1], r2, in_regs[r2], r3, in_regs[r3], r4, in_regs[r4]);
   }
 
+  printf("HI: %08x  LO: %08x\n", hi, lo);
+
   if (pending_load.reg_index != 0) {
     printf("Pending load: R%02d <- %08x\n", pending_load.reg_index,
            pending_load.val);
@@ -49,6 +51,10 @@ int CPU::next() {
   
   int cpu_fetch_result = fetch(instruction.data, pc);
   assert(cpu_fetch_result == 0);
+
+  if(pc == 0x00001530) {
+    printf("HElllooo!!\n");
+  }
 
   in_delay_slot = branch_ocurred;
   branch_ocurred = false;
@@ -655,13 +661,13 @@ int CPU::addu(const Instruction &i) {
   return 0;
 }
 
-static int store16_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
+static int store16_prohibited(PCIMatch match, u32 offset, u32 addr, u16 val) {
   switch (match) {
   case PCIMatch::ram:
     return 0;
     
   case PCIMatch::spu:
-    printf("Unhandled write to SPU register %x\n", offset);
+    printf("Unhandled write to SPU register %08x: %04x\n", addr, val);
     return 1;
 
   case PCIMatch::timers:
@@ -700,7 +706,7 @@ int CPU::sh(const Instruction &i) {
   if (match == PCIMatch::none)
     return -1;
 
-  int status = store16_prohibited(match, offset, value, addr);
+  int status = store16_prohibited(match, offset, addr, value);
   if (status < 0)
     return -1;
   if (status == 1)
