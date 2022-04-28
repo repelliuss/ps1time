@@ -588,15 +588,19 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     case DMA::reg::pio_channel_control:
     case DMA::reg::otc_channel_control:
       return 0;
-      
+
     default:
       printf("offset: %x\n", offset);
       printf("unhandled DMA access\n");
       return -1;
     }
-    
+
   case PCIMatch::gpu:
     printf("GPU read %d\n", offset);
+    return 0;
+
+  case PCIMatch::timers:
+    printf("Unhandled read from timer register %x\n", offset);
     return 0;
 
   default:
@@ -608,6 +612,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
 static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
+  case PCIMatch::timers:
     return 0;
 
   case PCIMatch::gpu:
