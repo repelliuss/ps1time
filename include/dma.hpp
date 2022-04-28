@@ -41,6 +41,15 @@ struct DMA {
     static constexpr u32 otc_channel_control = 0x68;
   };
 
+  // NOTE: all data that is being mutated should be reflected by calling
+  // internal sync()
+  // TODO: decompose 32bit values to descriptive values then at the end, compose
+  // & sync before returning to callee from dma. This approach's disadvantage is
+  // that ChannelView should be constructed every time since we don't care about
+  // stores and loads to DMA data which we get our performance benefit. As of
+  // writing, only channel_control register benefits from decomposing and
+  // composing as others seem to be immutable during operations. Needs testing
+  // for all claims
   struct ChannelView {
     // add offsets to get proper register
     // for example:

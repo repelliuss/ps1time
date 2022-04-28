@@ -7,7 +7,7 @@
 constexpr unsigned bits_count_mask(unsigned beg, unsigned end) {
   assert(beg >= 0 && beg < 32);
   assert(end >= 0 && end < 32);
-  return (1UL << (end - beg + 1UL)) - 1UL;
+  return (1U << (end - beg + 1U)) - 1U;
 }
 
 constexpr u32 bits_in_range(u32 data, unsigned beg, unsigned end) {
@@ -25,7 +25,7 @@ constexpr u32 bit(u32 data, unsigned at) {
 
 constexpr void bit_copy_to(u32 &data, unsigned at, unsigned bit) {
   assert(at >= 0 && at < 32);
-  data = (data & ~(1UL << at)) | (bit << at);
+  data = (data & ~(1U << at)) | (bit << at);
 }
 
 constexpr void bit_set(u32 &data, unsigned at) {

@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 
+// TODO: add u32, u16 pointers that is casted from u8*data and read specifically to read and write at once
 // TODO:  remove heap data and allocate all memory at once
 
 enum struct PCIMatch {

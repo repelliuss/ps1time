@@ -6,6 +6,7 @@
 #include <filesystem>
 
 // TODO: printfs to log functions, errors to stderr
+// TODO: refactor non-const specified const local variables to be const
 
 int main() {
   Bios bios;

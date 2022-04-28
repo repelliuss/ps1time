@@ -70,9 +70,12 @@ void finalize_transfer(DMA::ChannelView &chview) {
   bit_clear(chview.channel_control, 24);
   bit_clear(chview.channel_control, 28);
 
-  store32(chview.channel_control_addr, chview.channel_control, 0);
+  // TODO: Need to set the correct value here for other fields, particularly
+  // interrupts (according to simias)
+}
 
-  // TODO: Need to set the correct value for other fields, particularly interrupts (according to simias)
+void sync(const DMA::ChannelView &chview) {
+  store32(chview.channel_control_addr, chview.channel_control, 0);
 }
 
 } // namespace
@@ -97,7 +100,8 @@ constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr) {
   return (addr - 4) & 0x1fffff;
 }
 
-int transfer_dma_block(const DMA &dma, DMA::ChannelView &chview) {
+// TODO: not quite right, see duckstation and nocash
+int transfer_block(const DMA &dma, DMA::ChannelView &chview) {
   u32 increment = chview::increment(chview);
   u32 addr = chview.base_address;
   u32 remaining_size;
@@ -147,7 +151,7 @@ int transfer(const DMA &dma, DMA::ChannelView &chview) {
     return -1;
 
   default:
-    return transfer_dma_block(dma, chview);
+    return transfer_block(dma, chview);
   }
 
   return 0;
@@ -222,7 +226,9 @@ DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
 // finalize_transfer, pros: reusable channel object cons: safety?
 int DMA::try_transfer(ChannelView &chview) {
   if (chview::transfer_active(chview)) {
-    return transfer(*this, chview);
+    int status = transfer(*this, chview);
+    if(status < 0) return status;
+    chview::sync(chview);
   }
 
   return 0;
