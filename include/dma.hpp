@@ -41,7 +41,7 @@ struct DMA {
     static constexpr u32 otc_channel_control = 0x68;
   };
 
-  struct Channel {
+  struct ChannelView {
     // add offsets to get proper register
     // for example:
     // +8 to get channel control
@@ -87,7 +87,7 @@ struct DMA {
 
   DMA(RAM &ram);
 
-  Channel make_channel(u32 dma_reg_index); // TODO: should not be really needed
+  ChannelView make_channel_view(u32 dma_reg_index); // TODO: should not be really needed
 
   //reg::interrupt
   bool irq_active(); // TODO: can be private
@@ -97,5 +97,5 @@ struct DMA {
   void set_base_addr(u32 base_address_reg_index, u32 val);
 
   //may only be called reg::.*_channel_control when written
-  int try_transfer(Channel &channel);
+  int try_transfer(ChannelView &channel);
 };

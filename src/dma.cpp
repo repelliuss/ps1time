@@ -4,61 +4,61 @@
 
 #include <assert.h>
 
-namespace channel {
+namespace chview {
 namespace {
 
-bool direction_from_ram(const DMA::Channel &channel) {
-  return bit(channel.channel_control, 0) != 0;
+bool direction_from_ram(const DMA::ChannelView &chview) {
+  return bit(chview.channel_control, 0) != 0;
 }
 
-u32 increment(const DMA::Channel &channel) {
-  return (bit(channel.channel_control, 1) != 0) ? -4 : 4;
+u32 increment(const DMA::ChannelView &chview) {
+  return (bit(chview.channel_control, 1) != 0) ? -4 : 4;
 }
 
-bool transfer_triggered(const DMA::Channel &channel) {
-  return bit(channel.channel_control, 28) != 0;
+bool transfer_triggered(const DMA::ChannelView &chview) {
+  return bit(chview.channel_control, 28) != 0;
 }
 
-bool transfer_enabled(const DMA::Channel &channel) {
-  return bit(channel.channel_control, 24) != 0;
+bool transfer_enabled(const DMA::ChannelView &chview) {
+  return bit(chview.channel_control, 24) != 0;
 }
 
 // TODO: check all asserts and handle more gracefully?
-DMA::Channel::SyncMode sync_mode(const DMA::Channel &channel) {
-  switch (bits_in_range(channel.channel_control, 9, 10)) {
+DMA::ChannelView::SyncMode sync_mode(const DMA::ChannelView &chview) {
+  switch (bits_in_range(chview.channel_control, 9, 10)) {
   case 0:
-    return DMA::Channel::SyncMode::manual;
+    return DMA::ChannelView::SyncMode::manual;
   case 1:
-    return DMA::Channel::SyncMode::request;
+    return DMA::ChannelView::SyncMode::request;
   case 2:
-    return DMA::Channel::SyncMode::linked_list;
+    return DMA::ChannelView::SyncMode::linked_list;
   default:
     assert(false);
-    return DMA::Channel::SyncMode::reserved;
+    return DMA::ChannelView::SyncMode::reserved;
   }
 }
 
-bool transfer_active(const DMA::Channel &channel) {
-  if (sync_mode(channel) == DMA::Channel::SyncMode::manual) {
-    return transfer_enabled(channel) && transfer_triggered(channel);
+bool transfer_active(const DMA::ChannelView &chview) {
+  if (sync_mode(chview) == DMA::ChannelView::SyncMode::manual) {
+    return transfer_enabled(chview) && transfer_triggered(chview);
   }
 
-  return transfer_enabled(channel);
+  return transfer_enabled(chview);
 }
 
 // TODO: this function should not need to be called for linked list mode
 // linked list traverse ends with a specific header value 0xffffff
 
-int transfer_size(u32 &size, const DMA::Channel &channel) {
-  switch (sync_mode(channel)) {
-  case DMA::Channel::SyncMode::manual:
-    size = bits_in_range(channel.block_control, 0, 15);
+int transfer_size(u32 &size, const DMA::ChannelView &chview) {
+  switch (sync_mode(chview)) {
+  case DMA::ChannelView::SyncMode::manual:
+    size = bits_in_range(chview.block_control, 0, 15);
     return 0;
 
     // TODO: not quite right, they represent different things
-  case DMA::Channel::SyncMode::request:
-    size = bits_in_range(channel.block_control, 0, 15) *
-           bits_in_range(channel.block_control, 16, 31);
+  case DMA::ChannelView::SyncMode::request:
+    size = bits_in_range(chview.block_control, 0, 15) *
+           bits_in_range(chview.block_control, 16, 31);
     return 0;
 
   default:
@@ -66,24 +66,24 @@ int transfer_size(u32 &size, const DMA::Channel &channel) {
   }
 }
 
-void finalize_transfer(DMA::Channel &channel) {
-  bit_clear(channel.channel_control, 24);
-  bit_clear(channel.channel_control, 28);
+void finalize_transfer(DMA::ChannelView &chview) {
+  bit_clear(chview.channel_control, 24);
+  bit_clear(chview.channel_control, 28);
 
-  store32(channel.channel_control_addr, channel.channel_control, 0);
+  store32(chview.channel_control_addr, chview.channel_control, 0);
 
   // TODO: Need to set the correct value for other fields, particularly interrupts (according to simias)
 }
 
 } // namespace
-} // namespace channel
+} // namespace chview
 
 // for DMA
 namespace {
 
 using transfer_value_generator = u32 (*)(u32, u32);
 
-constexpr u32 mask_reg_index_to_channel_type_val(u32 reg_index) {
+constexpr u32 mask_reg_index_to_chview_type_val(u32 reg_index) {
   return reg_index & 0xfffffff0;
 }
 
@@ -97,27 +97,27 @@ constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr) {
   return (addr - 4) & 0x1fffff;
 }
 
-int transfer_dma_block(const DMA &dma, DMA::Channel &channel) {
-  u32 increment = channel::increment(channel);
-  u32 addr = channel.base_address;
+int transfer_dma_block(const DMA &dma, DMA::ChannelView &chview) {
+  u32 increment = chview::increment(chview);
+  u32 addr = chview.base_address;
   u32 remaining_size;
   transfer_value_generator generator;
 
-  switch (channel.type) {
-  case DMA::Channel::Type::OTC:
+  switch (chview.type) {
+  case DMA::ChannelView::Type::OTC:
     generator = get_otc_channel_transfer_value;
     break;
   default:
-    printf("Unhandled DMA source port %d\n", channel.type);
+    printf("Unhandled DMA source port %d\n", chview.type);
     return -1;
   }
 
-  if (channel::transfer_size(remaining_size, channel) < 0) {
+  if (chview::transfer_size(remaining_size, chview) < 0) {
     printf("Couldn't figure out DMA block transfer size\n");
     return -1;
   }
 
-  if (channel::direction_from_ram(channel)) {
+  if (chview::direction_from_ram(chview)) {
     printf("Unhandled DMA direction\n");
     return -1;
   } else {
@@ -135,19 +135,19 @@ int transfer_dma_block(const DMA &dma, DMA::Channel &channel) {
     }
   }
 
-  channel::finalize_transfer(channel);
+  chview::finalize_transfer(chview);
 
   return 0;
 }
 
-int transfer(const DMA &dma, DMA::Channel &channel) {
-  switch (channel::sync_mode(channel)) {
-  case DMA::Channel::SyncMode::linked_list:
+int transfer(const DMA &dma, DMA::ChannelView &chview) {
+  switch (chview::sync_mode(chview)) {
+  case DMA::ChannelView::SyncMode::linked_list:
     printf("Linked list mode unsupported\n");
     return -1;
 
   default:
-    return transfer_dma_block(dma, channel);
+    return transfer_dma_block(dma, chview);
   }
 
   return 0;
@@ -196,20 +196,20 @@ void DMA::set_interrupt(u32 val) {
 // TODO: may be needless as addr is already being masked each iteration
 void DMA::set_base_addr(u32 base_addr_reg_index, u32 val) {
   assert(0x00 <= base_addr_reg_index && base_addr_reg_index < 0x6a);
-  assert(mask_reg_index_to_channel_type_val(base_addr_reg_index) ==
+  assert(mask_reg_index_to_chview_type_val(base_addr_reg_index) ==
          base_addr_reg_index);
 
   // only 16MB are addressable by DMA, so cut redundant MSBs
   data[base_addr_reg_index] = val & 0xffffff;
 }
 
-DMA::Channel DMA::make_channel(u32 dma_reg_index) {
+DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
   assert(dma_reg_index >= 0x00 && dma_reg_index < 0x6a);
   // TODO: check if this is safe and faster than conditionals (all expected)
-  u32 entry_address = mask_reg_index_to_channel_type_val(dma_reg_index);
+  u32 entry_address = mask_reg_index_to_chview_type_val(dma_reg_index);
 
   return {
-      .type = static_cast<Channel::Type>(entry_address),
+      .type = static_cast<ChannelView::Type>(entry_address),
       .base_address = load32(data, entry_address),
       .block_control = load32(data, entry_address + 0x4),
 
@@ -220,9 +220,9 @@ DMA::Channel DMA::make_channel(u32 dma_reg_index) {
 
 // REVIEW: may make input channel const, it is not const because of
 // finalize_transfer, pros: reusable channel object cons: safety?
-int DMA::try_transfer(Channel &channel) {
-  if (channel::transfer_active(channel)) {
-    return transfer(*this, channel);
+int DMA::try_transfer(ChannelView &chview) {
+  if (chview::transfer_active(chview)) {
+    return transfer(*this, chview);
   }
 
   return 0;
