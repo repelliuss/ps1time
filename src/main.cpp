@@ -21,7 +21,15 @@ int main() {
   
   CPU cpu = CPU(pci);
 
-  while(!cpu.next());
+  // u64 i = 0;
+
+  while(!cpu.next()) {
+    // ++i;
+  }
+
+  // printf("%lu", i);
+
+   // NOTE: good instructions count: 20062004
 
   return 0;
 }
