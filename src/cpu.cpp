@@ -334,6 +334,7 @@ void CPU::ori(const Instruction &i) {
 
 static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
   switch (match) {
+  case PCIMatch::gpu:
   case PCIMatch::ram:
     return 0;
 
@@ -386,10 +387,6 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
 
   case PCIMatch::timers:
     printf("Unhandled write to timer register %x: %08x\n", offset, val);
-    return 1;
-
-  case PCIMatch::gpu:
-    printf("GPU write %08x: %08x\n", offset, val);
     return 1;
 
   case PCIMatch::mem_ctrl:
@@ -1352,9 +1349,7 @@ int CPU::swl(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  store32(data, new_mem_val, offset);
-
-  return 0;
+  return pci.store32_data(match, data, offset, new_mem_val);
 }
 
 int CPU::swr(const Instruction &i) {
@@ -1409,10 +1404,8 @@ int CPU::swr(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  
-  store32(data, new_mem_val, offset);
 
-  return 0;
+  return pci.store32_data(match, data, offset, new_mem_val);
 }
 
 int CPU::lwc0(const Instruction &i) {

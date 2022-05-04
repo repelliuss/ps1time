@@ -104,6 +104,15 @@ PCIMatch PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
 
 int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
   switch (match) {
+  case PCIMatch::gpu:
+    switch (offset) {
+    case 0:
+      return gpu.gp0(val);
+    default:
+      fprintf(stderr, "GPU write %d: %08x\n", offset, val);
+      return -1;
+    }
+    break;
 
     // TODO: logic here can be reduced with constraints to 0xZ0 where Z is
     // [0,6]?
@@ -142,6 +151,8 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
       store32(data, val, offset);
       break;
     }
+    break;
+
 
   default:
     store32(data, val, offset);

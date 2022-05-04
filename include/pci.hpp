@@ -6,6 +6,7 @@
 #include "heap_byte_data.hpp"
 #include "dma.hpp"
 #include "ram.hpp"
+#include "gpu.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -84,12 +85,6 @@ struct IRQ {
 struct Timers {
   static constexpr u32 size = 48;
   static constexpr Range range = {0x1f801100, 0x1f801130};
-  u8 data[size];
-};
-
-struct GPU {
-  static constexpr u32 size = 16;
-  static constexpr Range range = {0x1f801810, 0x1f801820};
   u8 data[size];
 };
 
