@@ -72,7 +72,7 @@ int CPU::next() {
 
   int cpu_exec_result = decode_execute(instruction);
   if (cpu_exec_result) {
-    printf("cpu can't exec inst: 0x%08x pc+4: %#08x\n", instruction.data, pc);
+    dump();
     return -1;
   }
 
