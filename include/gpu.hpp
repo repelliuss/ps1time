@@ -43,7 +43,7 @@ enum struct DMAdirection : u8 {
 struct HorizontalRes {
   u8 val;
 
-  u32 into_status() { return static_cast<u32>(val) << 16; }
+  constexpr u32 into_status() { return static_cast<u32>(val) << 16; }
 };
 
 constexpr HorizontalRes hres_from_fields(u8 hr1, u8 hr2) {
@@ -168,7 +168,7 @@ struct GPU {
   /// use external assers (pre-rendered textures, MDEC, etc...)
   DisplayDepth display_depth = DisplayDepth::d15bits;
 
-  u32 status() {
+  constexpr u32 status() {
     u32 val = 0;
 
     val |= static_cast<u32>(page_base_x) << 0;
@@ -208,10 +208,9 @@ struct GPU {
     // with that right now
     val |= 0 << 31;
 
-    
-    u32 dma_request;
+    u32 dma_request = 0;
     // REVIEW: following nocash spec here
-    switch(dma_direction) {
+    switch (dma_direction) {
     case DMAdirection::off:
       dma_request = 0;
       break;
@@ -230,6 +229,8 @@ struct GPU {
 
     return val;
   }
+
+  constexpr u32 read() { return 0; }
 
   int gp0(u32 val);
   int gp1(u32 val);

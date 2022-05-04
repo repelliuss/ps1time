@@ -338,7 +338,7 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     return 0;
 
   case PCIMatch::gpu:
-    switch(offset) {
+    switch (offset) {
     case 0:
     case 4:
       return 0;
@@ -384,7 +384,7 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     case DMA::reg::otc_channel_control:
       return 0;
     }
-    
+
     printf("Unhandled DMA write %x: %08x\n", offset, val);
     return -1;
 
@@ -556,12 +556,13 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     return 0;
 
   case PCIMatch::gpu:
-    if(offset == 4) {
+    switch (offset) {
+    case 0:
+    case 4:
       return 0;
-    } else {
-      printf("Unhandled GPU read %d\n", offset);
-      return -1;
     }
+    printf("Unhandled GPU read %d\n", offset);
+    return -1;
 
     // may put info messages to .*_data fns
   case PCIMatch::irq: // NOTE: requires specific value

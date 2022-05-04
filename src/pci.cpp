@@ -171,11 +171,14 @@ int PCI::load32_data(PCIMatch match, u8 *data, u32 offset) {
     return 0;
 
   case PCIMatch::gpu:
-    if (offset == 4) {
+    switch(offset) {
+    case 0:
+      return gpu.read();
+    case 4:
       return gpu.status();
     }
     assert(false);
-    break;
+    return -1;
 
   default:
     return load32(data, offset);
