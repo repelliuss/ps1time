@@ -53,8 +53,8 @@ constexpr HorizontalRes hres_from_fields(u8 hr1, u8 hr2) {
 }
 
 struct GPU {
-  static constexpr u32 size = 16;
-  static constexpr Range range = {0x1f801810, 0x1f801820};
+  static constexpr u32 size = 8;
+  static constexpr Range range = {0x1f801810, 0x1f801818};
   u8 data[size];
 
   /// True when the interrupt is active
