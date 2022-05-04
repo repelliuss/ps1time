@@ -327,7 +327,7 @@ static u8 extract_irq_active(u32 interrupt) {
   u32 channels_has_irq =
       channels_interrupted_status & channels_interrupt_ack_status;
 
-  return forced_interrupt || ((master_allows && channels_has_irq) != 0);
+  return forced_interrupt || (master_allows && (channels_has_irq != 0));
 }
 
 void DMA::set_interrupt(u32 val) {
@@ -338,10 +338,12 @@ void DMA::set_interrupt(u32 val) {
 
   // writing 1 to ack flags resets it
   channels_interrupt_ack_status &= ~new_channels_interrupt_ack_status;
+  
+  printf("DMA IRQ en: %s %08x\n", bit(val, 23) != 0 ? "true" : "false", val);
 
   u8 last_byte = (irq << 7) | channels_interrupt_ack_status;
   bits_copy_to_range(val, 24, 31, last_byte);
-
+  
   data[reg::interrupt] = val;
 }
 
