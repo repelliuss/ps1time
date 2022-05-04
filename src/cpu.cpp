@@ -593,7 +593,6 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
     }
 
   case PCIMatch::gpu:
-    printf("GPU read %d\n", offset);
     return 0;
 
   case PCIMatch::timers:
@@ -1050,7 +1049,10 @@ int CPU::rfe(const Instruction &i) {
 static int load16_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
   case PCIMatch::ram:
+    return 0;
+    
   case PCIMatch::spu: // NOTE: requires specific load value
+    printf("Unhandled read from SPU register %08x\n", addr);
     return 0;
 
   case PCIMatch::irq:
