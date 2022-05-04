@@ -39,6 +39,6 @@ int GPU::gp0(u32 val) {
     return gp0_draw_mode(val);
   }
 
-  fprintf(stderr, "Unhandled GP0 command %08x\n", val);
+  fprintf(stderr, "Unhandled GP0 opcode %02x\n", opcode);
   return -1;
 }

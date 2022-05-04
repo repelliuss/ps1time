@@ -178,4 +178,5 @@ int PCI::load32_data(PCIMatch match, u8 *data, u32 offset) {
 
   default:
     return load32(data, offset);
-  }}
+  }
+}

@@ -379,9 +379,7 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
       return 0;
 
     default:
-      printf("offset: %x\n", offset);
-      printf("val: %x\n", val);
-      printf("unhandled DMA write access\n");
+      printf("Unhandled DMA write %x: %08x\n", offset, val);
       return -1;
     }
 
@@ -587,8 +585,7 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
       return 0;
 
     default:
-      printf("offset: %x\n", offset);
-      printf("unhandled DMA access\n");
+      printf("Unhandled DMA read at %x\n", offset);
       return -1;
     }
 
