@@ -11,9 +11,9 @@
 void CPU::dump() {
   Instruction ins;
 
-  fetch(ins.data, pc);
+  fetch(ins.data, cur_pc);
 
-  printf("PC: %08x\n", pc);
+  printf("PC: %08x\n", cur_pc);
 
   for(int i = 0; i < 8; ++i) {
     int r1 = i * 4;
