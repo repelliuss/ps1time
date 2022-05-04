@@ -193,6 +193,54 @@ int transfer_manual(const DMA &dma, DMA::ChannelView &chview) {
   return 0;
 }
 
+int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
+
+  if(!chview::direction_from_ram(chview)) {
+    fprintf(stderr, "Invalid DMA direction for linked list mode");
+    return -1;
+  }
+
+  if (chview.type != DMA::ChannelView::Type::GPU) {
+    fprintf(stderr, "Attempted linked list DMA on port %d", chview.type);
+    return -1;
+  }
+
+  u32 aligned_addr = chview.base_address & ram_addr_align_mask();
+  u32 header;
+
+  do {
+    memcpy(&header, dma.ram.data + aligned_addr, sizeof(u32));
+
+    u32 remaining_size = header >> 24;
+
+    if(remaining_size > 0) {
+      printf("linked list packet size: %d\n", remaining_size);
+    }
+
+    while (remaining_size > 0) {
+      aligned_addr = (aligned_addr + 4) &
+             ram_addr_align_mask(); // REVIEW: masking should'nt bee needed
+
+      u32 command;
+      memcpy(&command, dma.ram.data + aligned_addr, sizeof(u32));
+
+      printf("GPU command %08x\n", command);
+
+      --remaining_size;
+    }
+
+    aligned_addr = header & ram_addr_align_mask();
+
+    // REVIEW: end-of-table marker is 0xffffff but
+    // mednafen only checks MSB but this is not valid addr
+    // maybe hardware does the same gotta check
+  } while ((header & 0x800000) == 0);
+
+  chview::finalize_transfer(chview);
+
+  return 0;
+}
+
 // TODO: not quite right, see transfer_manual and its review
 int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
   const u32 increment = chview::addr_step(chview);
@@ -234,9 +282,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
 int transfer(const DMA &dma, DMA::ChannelView &chview) {
   switch (chview::sync_mode(chview)) {
   case DMA::ChannelView::SyncMode::linked_list:
-    printf("Linked list transfer unimplemented!\n");
-    return -1;
-
+    return transfer_linked_list(dma, chview);
   default:
     return transfer_manual_and_request(dma, chview);
   }
