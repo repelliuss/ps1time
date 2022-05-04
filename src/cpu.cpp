@@ -548,10 +548,16 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
   case PCIMatch::bios:
   case PCIMatch::ram:
+  case PCIMatch::gpu:
     return 0;
+
     // may put info messages to .*_data fns
   case PCIMatch::irq: // NOTE: requires specific value
     printf("IRQ control read %x\n", offset);
+    return 0;
+
+  case PCIMatch::timers:
+    printf("Unhandled read from timer register %x\n", offset);
     return 0;
 
   case PCIMatch::dma:
@@ -588,13 +594,6 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
       printf("Unhandled DMA read at %x\n", offset);
       return -1;
     }
-
-  case PCIMatch::gpu:
-    return 0;
-
-  case PCIMatch::timers:
-    printf("Unhandled read from timer register %x\n", offset);
-    return 0;
 
   default:
     printf("unhandled load32 at address %08x\n", addr);
@@ -1052,9 +1051,9 @@ static int load16_prohibited(PCIMatch match, u32 offset, u32 addr) {
     printf("Unhandled read from SPU register %08x\n", addr);
     return 0;
 
-  case PCIMatch::irq:
+  case PCIMatch::irq: // REVIEW: requires specific value
     printf("IRQ control read %x\n", offset);
-    return 1;
+    return 0;
 
   default:
     printf("unhandled load16 at address %08x\n", addr);
@@ -1066,6 +1065,7 @@ static u16 load16_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
     // NOTE: lh spu always return 0
   case PCIMatch::spu:
+  case PCIMatch::irq:
     return 0;
   default:
     return load16(data, offset);
