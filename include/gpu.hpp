@@ -48,7 +48,7 @@ struct HorizontalRes {
 
 constexpr HorizontalRes hres_from_fields(u8 hr1, u8 hr2) {
   return {
-      .val = static_cast<u8>((hr2 & 1U) | ((hr1 & 3U) << 1U)),
+      .val = static_cast<u8>((hr2 & 0b1U) | ((hr1 & 0b11U) << 1U)),
   };
 }
 
@@ -238,4 +238,5 @@ struct GPU {
   int gp0_draw_mode(u32 val);
 
   int gp1_soft_reset(u32 val);
+  int gp1_display_mode(u32 val);
 };

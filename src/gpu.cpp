@@ -96,12 +96,50 @@ int GPU::gp1_soft_reset(u32 val) {
   return 0;
 }
 
+int GPU::gp1_display_mode(u32 val) {
+  u8 hr1 = bits_in_range(val, 0, 1);
+  u8 hr2 = bit(val, 6);
+  hres = hres_from_fields(hr1, hr2);
+
+  if(bit(val, 2) != 0) {
+    vres = VerticalRes::y480lines;
+  }
+  else {
+    vres = VerticalRes::y240lines;
+  }
+
+  if(bit(val, 3) != 0) {
+    video_mode = VideoMode::pal;
+  }
+  else {
+    video_mode = VideoMode::ntsc;
+  }
+
+  if(bit(val, 4) != 0) {
+    display_depth = DisplayDepth::d15bits;
+  }
+  else {
+    display_depth = DisplayDepth::d24bits;
+  }
+
+  interlaced = bit(val, 5) != 0;
+
+  if(bit(val, 7) != 0) {
+    printf("Unsupported display mode %08x\n", val);
+    return -1;
+  }
+
+  return 0;
+}
+
 int GPU::gp1(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch(opcode) {
   case 0x00:
     return gp1_soft_reset(val);
+  case 0x08:
+    return gp1_display_mode(val);
   default:
     printf("Unhandled GP1 command %08x\n", val);
     return -1;
