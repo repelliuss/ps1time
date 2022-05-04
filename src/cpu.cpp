@@ -47,20 +47,18 @@ int CPU::dump_and_next() {
 
 // TODO: remove assertions
 int CPU::next() {
-  Instruction instruction;
+  // save cur pc here in case of expceiton for EPC
+  cur_pc = pc;
+
+  // TODO: move this to pc setting instructions, jump and branch
+  if (cur_pc % 4 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
   
+  Instruction instruction;
   int cpu_fetch_result = fetch(instruction.data, pc);
   assert(cpu_fetch_result == 0);
 
-  in_delay_slot = branch_ocurred;
-  branch_ocurred = false;
-
-  // TODO: move this to pc setting instructions, jump and branch
-  if(pc % 4 != 0) {
-    return exception(Cause::unaligned_load_addr);
-  }
-
-  cur_pc = pc;
   pc = next_pc;
   next_pc += 4;
 
@@ -69,6 +67,9 @@ int CPU::next() {
     set_reg(pending_load.reg_index, pending_load.val);
     pending_load = no_op_load;
   }
+
+  in_delay_slot = branch_ocurred;
+  branch_ocurred = false;
 
   int cpu_exec_result = decode_execute(instruction);
   if (cpu_exec_result) {
