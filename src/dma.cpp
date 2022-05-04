@@ -343,8 +343,8 @@ void DMA::set_interrupt(u32 val) {
 
   u8 last_byte = (irq << 7) | channels_interrupt_ack_status;
   bits_copy_to_range(val, 24, 31, last_byte);
-  
-  data[reg::interrupt] = val;
+
+  memcpy(data+reg::interrupt, &val, sizeof(val));
 }
 
 // TODO: may be needless as addr is already being masked each iteration
@@ -354,7 +354,8 @@ void DMA::set_base_addr(u32 base_addr_reg_index, u32 val) {
          base_addr_reg_index);
 
   // only 16MB are addressable by DMA, so cut redundant MSBs
-  data[base_addr_reg_index] = val & 0xffffff;
+  val &= 0xffffff;
+  memcpy(data+base_addr_reg_index, &val, sizeof(val));
 }
 
 DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
