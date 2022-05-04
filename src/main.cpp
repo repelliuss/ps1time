@@ -27,6 +27,8 @@ int main() {
     // ++i;
   }
 
+  cpu.dump();
+
   // printf("%lu", i);
 
    // NOTE: good instructions count: 20062004

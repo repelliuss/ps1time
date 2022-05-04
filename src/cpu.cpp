@@ -334,9 +334,17 @@ void CPU::ori(const Instruction &i) {
 
 static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
   switch (match) {
-  case PCIMatch::gpu:
   case PCIMatch::ram:
     return 0;
+
+  case PCIMatch::gpu:
+    switch(offset) {
+    case 0:
+    case 4:
+      return 0;
+    }
+    fprintf(stderr, "GPU write %d: %08x\n", offset, val);
+    return -1;
 
   case PCIMatch::irq:
     printf("IRQ control: %x <- %08x\n", offset, val);
@@ -350,8 +358,6 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     switch (offset) {
     case DMA::reg::control:
     case DMA::reg::interrupt:
-      return 0;
-
       // channels
     case DMA::reg::mdecin_base_address:
     case DMA::reg::mdecout_base_address:
@@ -377,11 +383,10 @@ static int store32_prohibited(PCIMatch match, u32 offset, u32 val, u32 addr) {
     case DMA::reg::pio_channel_control:
     case DMA::reg::otc_channel_control:
       return 0;
-
-    default:
-      printf("Unhandled DMA write %x: %08x\n", offset, val);
-      return -1;
     }
+    
+    printf("Unhandled DMA write %x: %08x\n", offset, val);
+    return -1;
 
   case PCIMatch::timers:
     printf("Unhandled write to timer register %x: %08x\n", offset, val);
@@ -548,8 +553,15 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   switch (match) {
   case PCIMatch::bios:
   case PCIMatch::ram:
-  case PCIMatch::gpu:
     return 0;
+
+  case PCIMatch::gpu:
+    if(offset == 4) {
+      return 0;
+    } else {
+      printf("Unhandled GPU read %d\n", offset);
+      return -1;
+    }
 
     // may put info messages to .*_data fns
   case PCIMatch::irq: // NOTE: requires specific value

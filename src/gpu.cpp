@@ -34,13 +34,76 @@ int GPU::gp0_draw_mode(u32 val) {
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
-  switch(opcode) {
+  switch (opcode) {
   case 0x00:
     return 0;
   case 0xe1:
     return gp0_draw_mode(val);
   }
 
-  fprintf(stderr, "Unhandled GP0 opcode %02x\n", opcode);
+  fprintf(stderr, "Unhandled GP0 command %08x\n", val);
   return -1;
+}
+
+int GPU::gp1_soft_reset(u32 val) {
+  interrupt = false;
+
+  page_base_x = 0;
+  page_base_y = 0;
+  semi_transparency = 0;
+  tex_depth = TextureDepth::t4bit;
+  
+  texture_window_x_mask = 0;
+  texture_window_y_mask = 0;
+  texture_window_x_offset = 0;
+  texture_window_y_offset = 0;
+  
+  dithering = false;
+  draw_to_display = false;
+  texture_disable = false;
+  rectangle_texture_x_flip = false;
+  rectangle_texture_y_flip = false;
+  drawing_area_left = 0;
+  drawing_area_top = 0;
+  drawing_area_right = 0;
+  drawing_area_bottom = 0;
+  drawing_x_offset = 0;
+  drawing_y_offset = 0;
+  force_set_mask_bit = false;
+  preserve_masked_pixels = false;
+
+  // REVIEW: field is not being reset
+
+  dma_direction = DMAdirection::off;
+
+  display_disabled = true;
+  display_vram_x_start = 0;
+  display_vram_y_start = 0;
+  hres = hres_from_fields(0, 0);
+  vres = VerticalRes::y240lines;
+
+  video_mode = VideoMode::ntsc;
+  interlaced = true;
+  display_horiz_start = 0x200;
+  display_horiz_end = 0xc00;
+  display_line_start = 0x10;
+  display_line_end = 0x100;
+  display_depth = DisplayDepth::d15bits;
+
+  // TODO: should also clear the command FIFO
+  // TODO: should also invalidate GPU cache
+
+  return 0;
+}
+
+int GPU::gp1(u32 val) {
+  u32 opcode = bits_in_range(val, 24, 31);
+
+  switch(opcode) {
+  case 0x00:
+    return gp1_soft_reset(val);
+  default:
+    printf("Unhandled GP1 command %08x\n", val);
+    return -1;
+  }
 }

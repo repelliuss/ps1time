@@ -57,6 +57,9 @@ struct GPU {
   static constexpr Range range = {0x1f801810, 0x1f801820};
   u8 data[size];
 
+  /// True when the interrupt is active
+  bool interrupt = false;
+
   /// Texture page base X coordinate (4 bits, 64 byte increment)
   u8 page_base_x = 0;
 
@@ -70,11 +73,50 @@ struct GPU {
   /// Texture page color depth
   TextureDepth tex_depth = TextureDepth::t4bit;
 
+  /// Texture window x mask (8 pixel steps)
+  u8 texture_window_x_mask = 0;
+
+  /// Texture window y mask (8 pixel steps)
+  u8 texture_window_y_mask = 0;
+
+  /// Texture window x offset (8 pixel steps)
+  u8 texture_window_x_offset = 0;
+
+  /// Texture window y offset (8 pixel steps)
+  u8 texture_window_y_offset = 0;
+
   /// Enable dithering from 24 to 15bits RGB
   bool dithering = false;
 
   /// Allow drawing to the display area
   bool draw_to_display = false;
+
+  /// When true all textures are disabled
+  bool texture_disable = false;
+
+  /// Mirror textured rectangles along x axis
+  bool rectangle_texture_x_flip = false;
+
+  /// Mirror textured rectangles along y axis
+  bool rectangle_texture_y_flip = false;
+
+  /// Left-most column of drawing area
+  u16 drawing_area_left = 0;
+
+  /// Top-most line of drawing area
+  u16 drawing_area_top = 0;
+
+  /// Right-most column of drawing area
+  u16 drawing_area_right = 0;
+
+  /// Bottom-most column of drawing area
+  u16 drawing_area_bottom = 0;
+
+  /// Horizontal drawing offset applied to all vertex
+  i16 drawing_x_offset = 0;
+
+  /// Vertical drawing offset applied to all vertex
+  i16 drawing_y_offset = 0;
 
   /// Force "mask" bit of the pixel to 1 when writing to VRAM, otherwise don't
   /// modify
@@ -83,12 +125,21 @@ struct GPU {
   /// Don't draw to pixels which have the 'mask' bit set
   bool preserve_masked_pixels = false;
 
+  /// DMA request direction
+  DMAdirection dma_direction = DMAdirection::off;
+
   /// Currently displayed field. For progressive output this is always
   /// Field::top
   Field field = Field::top;
 
-  /// When true all textures are disabled
-  bool texture_disable = false;
+  /// Disable the display
+  bool display_disabled = true;
+
+  /// First column of the display area in VRAM
+  u16 display_vram_x_start = 0;
+
+  /// First line of the display area in VRAM
+  u16 display_vram_y_start = 0;
 
   /// Video output horizontal resolution
   HorizontalRes hres = hres_from_fields(0, 0);
@@ -98,27 +149,24 @@ struct GPU {
 
   VideoMode video_mode = VideoMode::ntsc;
 
-  /// Display depth. The GPU itself always draws 15bit RGB, 24 bit output must
-  /// use external assers (pre-rendered textures, MDEC, etc...)
-  DisplayDepth display_depth = DisplayDepth::d15bits;
-
   /// Output interlaced video signal instead of progressive
   bool interlaced = false;
 
-  /// Disable the display
-  bool display_disabled = true;
+  /// Display output horizontal start relative to HSYNC
+  u16 display_horiz_start = 0x200;
 
-  /// True when the interrupt is active
-  bool interrupt = false;
+  /// Display output horizontal end relative to HSYNC
+  u16 display_horiz_end = 0xc00;
 
-  /// DMA request direction
-  DMAdirection dma_direction = DMAdirection::off;
+  /// Display output first line relative to VSYNC
+  u16 display_line_start = 0x10;
 
-  /// Mirror textured rectangles along x axis
-  bool rectangle_texture_x_flip;
-  
-  /// Mirror textured rectangles along y axis
-  bool rectangle_texture_y_flip;
+  /// Display output last line relative to VSYNC
+  u16 display_line_end = 0x100;
+
+  /// Display depth. The GPU itself always draws 15bit RGB, 24 bit output must
+  /// use external assers (pre-rendered textures, MDEC, etc...)
+  DisplayDepth display_depth = DisplayDepth::d15bits;
 
   u32 status() {
     u32 val = 0;
@@ -184,6 +232,9 @@ struct GPU {
   }
 
   int gp0(u32 val);
+  int gp1(u32 val);
 
   int gp0_draw_mode(u32 val);
+
+  int gp1_soft_reset(u32 val);
 };

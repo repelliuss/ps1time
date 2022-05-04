@@ -108,11 +108,12 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
     switch (offset) {
     case 0:
       return gpu.gp0(val);
-    default:
-      fprintf(stderr, "GPU write %d: %08x\n", offset, val);
-      return -1;
+    case 4:
+      return gpu.gp1(val);
     }
-    break;
+    assert(false);
+    return -1;
+
 
     // TODO: logic here can be reduced with constraints to 0xZ0 where Z is
     // [0,6]?
@@ -162,6 +163,7 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
   return 0;
 }
 
+// REVIEW: shouldn't return error value, use prohibitions
 int PCI::load32_data(PCIMatch match, u8 *data, u32 offset) {
   switch (match) {
   case PCIMatch::irq:
@@ -172,9 +174,8 @@ int PCI::load32_data(PCIMatch match, u8 *data, u32 offset) {
     if (offset == 4) {
       return gpu.status();
     }
-
-    printf("Unhandled GPU read %d\n", offset);
-    return -1;
+    assert(false);
+    break;
 
   default:
     return load32(data, offset);
