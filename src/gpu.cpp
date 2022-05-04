@@ -35,6 +35,8 @@ int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch(opcode) {
+  case 0x00:
+    return 0;
   case 0xe1:
     return gp0_draw_mode(val);
   }
