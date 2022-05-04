@@ -606,24 +606,6 @@ static int load32_prohibited(PCIMatch match, u32 offset, u32 addr) {
   }
 }
 
-static u32 load32_data(PCIMatch match, u8 *data, u32 offset) {
-  switch (match) {
-  case PCIMatch::irq:
-  case PCIMatch::timers:
-    return 0;
-
-  case PCIMatch::gpu:
-    if (offset == 4) {
-      return 0x1c000000;
-    }
-
-    return 0;
-
-  default:
-    return load32(data, offset);
-  }
-}
-
 int CPU::lw(const Instruction &i) {
   u8 *data;
   u32 offset;
@@ -645,7 +627,7 @@ int CPU::lw(const Instruction &i) {
     return 0;
 
   pending_load.reg_index = i.rt();
-  pending_load.val = load32_data(match, data, offset);
+  pending_load.val = pci.load32_data(match, data, offset);
 
   return 0;
 }
@@ -1232,7 +1214,7 @@ int CPU::lwl(const Instruction &i) {
   if (status == 1)
     return 0;
   
-  u32 aligned_word = load32_data(match, data, offset);
+  u32 aligned_word = pci.load32_data(match, data, offset);
 
   pending_load.reg_index = i.rt();
   switch (unaligned_addr & 0b11) {
@@ -1276,7 +1258,7 @@ int CPU::lwr(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  u32 aligned_word = load32_data(match, data, offset);
+  u32 aligned_word = pci.load32_data(match, data, offset);
 
   pending_load.reg_index = i.rt();
   switch (unaligned_addr & 0b11) {
@@ -1321,7 +1303,7 @@ int CPU::swl(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  u32 cur_mem_val = load32_data(match, data, offset);
+  u32 cur_mem_val = pci.load32_data(match, data, offset);
   u32 new_mem_val;
 
   switch (unaligned_addr & 0b11) {
@@ -1376,7 +1358,7 @@ int CPU::swr(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  u32 cur_mem_val = load32_data(match, data, offset);
+  u32 cur_mem_val = pci.load32_data(match, data, offset);
   u32 new_mem_val;
 
   switch (unaligned_addr & 0b11) {

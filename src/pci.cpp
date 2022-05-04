@@ -161,3 +161,21 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
 
   return 0;
 }
+
+int PCI::load32_data(PCIMatch match, u8 *data, u32 offset) {
+  switch (match) {
+  case PCIMatch::irq:
+  case PCIMatch::timers:
+    return 0;
+
+  case PCIMatch::gpu:
+    if (offset == 4) {
+      return gpu.status();
+    }
+
+    printf("Unhandled GPU read %d\n", offset);
+    return -1;
+
+  default:
+    return load32(data, offset);
+  }}
