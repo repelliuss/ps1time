@@ -324,7 +324,10 @@ int CPU::exception(const Cause &cause) {
 
 constexpr u32 CPU::reg(u32 index) { return in_regs[index]; }
 
-constexpr void CPU::set_reg(u32 index, u32 val) { out_regs[index] = val; }
+constexpr void CPU::set_reg(u32 index, u32 val) {
+  out_regs[index] = val;
+  out_regs[0] = 0;
+}
 
 void CPU::lui(const Instruction &i) { set_reg(i.rt(), i.imm16() << 16); }
 
