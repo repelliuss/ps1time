@@ -244,12 +244,8 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
 // TODO: not quite right, see transfer_manual and its review
 int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
   const u32 increment = chview::addr_step(chview);
-  const transfer_value_generator generator = get_generator(chview.type);
   u32 cur_addr = chview.base_address;
   u32 remaining_size;
-
-  if (generator == nullptr)
-    return -1;
 
   if (chview::transfer_size(remaining_size, chview) < 0) {
     printf("Couldn't figure out DMA block transfer size\n");
@@ -257,9 +253,28 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
   }
 
   if (chview::direction_from_ram(chview)) {
-    printf("Unhandled DMA direction\n");
-    return -1;
+    while (remaining_size > 0) {
+      u32 aligned_addr = cur_addr & ram_addr_align_mask();
+
+      u32 src_word;
+      memcpy(&src_word, dma.ram.data + aligned_addr, sizeof(u32));
+
+      switch (chview.type) {
+      case DMA::ChannelView::Type::GPU:
+        printf("GPU data %08x\n", src_word);
+        break;
+      default:
+        fprintf(stderr, "Unhandled DMA destination port %d\n", chview.type);
+      }
+
+      cur_addr += increment;
+      --remaining_size;
+    }
   } else {
+    const transfer_value_generator generator = get_generator(chview.type);
+    if (generator == nullptr)
+      return -1;
+
     while (remaining_size > 0) {
       // NOTE: it seems like addr may be bad duckstation handles similar to
       // this
