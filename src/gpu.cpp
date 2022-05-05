@@ -322,12 +322,19 @@ int gp1_display_vertical_range(GPU &gpu, u32 val) {
   return 0;
 }
 
+static int gp1_display_enable(GPU &gpu, u32 val) {
+  gpu.display_disabled = bit(val, 0) != 0;
+  return 0;
+}
+
 int GPU::gp1(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch (opcode) {
   case 0x00:
     return gp1_soft_reset(*this, val);
+  case 0x03:
+    return gp1_display_enable(*this, val);
   case 0x04:
     return gp1_dma_direction(*this, val);
   case 0x05:
