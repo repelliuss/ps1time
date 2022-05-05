@@ -198,6 +198,13 @@ int GPU::gp1_display_mode(u32 val) {
   return 0;
 }
 
+int GPU::gp1_display_vram_start(u32 val) {
+  // lsb ignored to be always aligned to a 16 bit pixel
+  display_vram_x_start = (val & 0b1111111110);
+  display_vram_y_start = bits_in_range(val, 10, 18);
+  return 0;
+}
+
 int GPU::gp1(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
@@ -206,6 +213,8 @@ int GPU::gp1(u32 val) {
     return gp1_soft_reset(val);
   case 0x04:
     return gp1_dma_direction(val);
+  case 0x05:
+    return gp1_display_vram_start(val);
   case 0x08:
     return gp1_display_mode(val);
   default:

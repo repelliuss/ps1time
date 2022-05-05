@@ -245,4 +245,5 @@ struct GPU {
   int gp1_dma_direction(u32 val);
   int gp1_soft_reset(u32 val);
   int gp1_display_mode(u32 val);
+  int gp1_display_vram_start(u32 val);
 };
