@@ -3,7 +3,7 @@
 #include "types.hpp"
 #include "range.hpp"
 #include "ram.hpp"
-
+#include "gpu.hpp"
 
 struct DMA {
   static constexpr u32 size = 0x80;
@@ -93,8 +93,9 @@ struct DMA {
   
   u8 data[size] = {0};
   RAM &ram;
+  GPU &gpu;
 
-  DMA(RAM &ram);
+  DMA(RAM &ram, GPU &gpu);
 
   ChannelView make_channel_view(u32 dma_reg_index); // TODO: should not be really needed
 

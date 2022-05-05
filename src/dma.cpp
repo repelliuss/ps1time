@@ -224,7 +224,9 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
       u32 command;
       memcpy(&command, dma.ram.data + aligned_addr, sizeof(u32));
 
-      printf("GPU command %08x\n", command);
+      int status = dma.gpu.gp0(command);
+      if (status < 0)
+        return status;
 
       --remaining_size;
     }
@@ -307,7 +309,7 @@ int transfer(const DMA &dma, DMA::ChannelView &chview) {
 
 } // namespace
 
-DMA::DMA(RAM &ram) : ram(ram) {
+DMA::DMA(RAM &ram, GPU &gpu) : ram(ram), gpu(gpu) {
   // REVIEW: maybe introduce own store&load for each peripheral fns?
   store32(data, 0x07654321, reg::control);
 }

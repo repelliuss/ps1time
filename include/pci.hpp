@@ -97,15 +97,15 @@ struct PCI {
   RamSize ram_size;
   CacheCtrl cache_ctrl;
   RAM ram;
+  GPU gpu;
   SPU spu;
   Expansion1 expansion1;
   Expansion2 expansion2;
   IRQ irq;
   Timers timers;
   DMA dma;
-  GPU gpu;
 
-  PCI() : dma(ram) {}
+  PCI() : dma(ram, gpu) {}
   
   PCIMatch match(u8*& out_data, u32& offset, u32 addr);
   int store32_data(PCIMatch match, u8 *data, u32 offset, u32 val);
