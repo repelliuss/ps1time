@@ -31,6 +31,29 @@ int GPU::gp0_draw_mode(u32 val) {
   return 0;
 }
 
+int GPU::gp0_drawing_area_top_left(u32 val) {
+  drawing_area_left = bits_in_range(val, 0, 9);
+  drawing_area_top = bits_in_range(val, 10, 19);
+  return 0;
+}
+
+int GPU::gp0_drawing_area_bottom_right(u32 val) {
+  drawing_area_right = bits_in_range(val, 0, 9);
+  drawing_area_bottom = bits_in_range(val, 10, 19);
+  return 0;
+}
+
+int GPU::gp0_drawing_offset(u32 val) {
+  u32 x = bits_in_range(val, 0, 10);
+  u32 y = bits_in_range(val, 11, 21);
+
+  //values are 11 bit signed, forcing sign extension
+  drawing_x_offset = (static_cast<i16>(x << 5)) >> 5;
+  drawing_y_offset = (static_cast<i16>(y << 5)) >> 5;
+
+  return 0;
+}
+ 
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
@@ -39,6 +62,12 @@ int GPU::gp0(u32 val) {
     return 0;
   case 0xe1:
     return gp0_draw_mode(val);
+  case 0xe3:
+    return gp0_drawing_area_top_left(val);
+  case 0xe4:
+    return gp0_drawing_area_bottom_right(val);
+  case 0xe5:
+    return gp0_drawing_offset(val);
   }
 
   fprintf(stderr, "Unhandled GP0 command %08x\n", val);
