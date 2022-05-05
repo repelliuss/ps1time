@@ -359,12 +359,21 @@ static int gp1_ack_irq(GPU &gpu, u32 val) {
   return 0;
 }
 
+static int gp1_reset_command_buffer(GPU &gpu, u32 val) {
+  clear(gpu.gp0_cmd_buf);
+  gpu.gp0_cmd_pending_words_count = 0;
+  gpu.gp0_mode = GP0mode::command;
+  return 0;
+}
+
 int GPU::gp1(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch (opcode) {
   case 0x00:
     return gp1_soft_reset(*this, val);
+  case 0x01:
+    return gp1_reset_command_buffer(*this, val);
   case 0x02:
     return gp1_ack_irq(*this, val);
   case 0x03:
