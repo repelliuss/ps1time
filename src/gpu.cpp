@@ -45,6 +45,25 @@ int GPU::gp0(u32 val) {
   return -1;
 }
 
+int GPU::gp1_dma_direction(u32 val) {
+  switch(bits_in_range(val, 0, 1)) {
+  case 0:
+    dma_direction = DMAdirection::off;
+    break;
+  case 1:
+    dma_direction = DMAdirection::fifo;
+    break;
+  case 2:
+    dma_direction = DMAdirection::cpu_to_gp0;
+    break;
+  case 3:
+    dma_direction = DMAdirection::vram_to_cpu;
+    break;
+  }
+
+  return 0;
+}
+
 int GPU::gp1_soft_reset(u32 val) {
   interrupt = false;
 
@@ -138,6 +157,8 @@ int GPU::gp1(u32 val) {
   switch(opcode) {
   case 0x00:
     return gp1_soft_reset(val);
+  case 0x04:
+    return gp1_dma_direction(val);
   case 0x08:
     return gp1_display_mode(val);
   default:

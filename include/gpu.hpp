@@ -237,6 +237,7 @@ struct GPU {
 
   int gp0_draw_mode(u32 val);
 
+  int gp1_dma_direction(u32 val);
   int gp1_soft_reset(u32 val);
   int gp1_display_mode(u32 val);
 };
