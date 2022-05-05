@@ -2,159 +2,214 @@
 
 #include <stdio.h>
 
-int GPU::gp0_draw_mode(u32 val) {
-  page_base_x = bits_in_range(val, 0, 3);
-  page_base_y = bit(val, 4);
-  semi_transparency = bits_in_range(val, 5, 6);
+static int gp0_draw_mode(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 val = buf.data[0];
+  
+  gpu.page_base_x = bits_in_range(val, 0, 3);
+  gpu.page_base_y = bit(val, 4);
+  gpu.semi_transparency = bits_in_range(val, 5, 6);
 
   switch (bits_in_range(val, 7, 8)) {
   case 0:
-    tex_depth = TextureDepth::t4bit;
+    gpu.tex_depth = TextureDepth::t4bit;
     break;
   case 1:
-    tex_depth = TextureDepth::t8bit;
+    gpu.tex_depth = TextureDepth::t8bit;
     break;
   case 2:
-    tex_depth = TextureDepth::t15bit;
+    gpu.tex_depth = TextureDepth::t15bit;
     break;
   default:
     fprintf(stderr, "Unhandled texture depth %d\n", bits_in_range(val, 7, 9));
     return -1;
   }
 
-  dithering = bit(val, 9) != 0;
-  draw_to_display = bit(val, 10) != 0;
-  texture_disable = bit(val, 11) != 0;
-  rectangle_texture_x_flip = bit(val, 12) != 0;
-  rectangle_texture_y_flip = bit(val, 13) != 0;
+  gpu.dithering = bit(val, 9) != 0;
+  gpu.draw_to_display = bit(val, 10) != 0;
+  gpu.texture_disable = bit(val, 11) != 0;
+  gpu.rectangle_texture_x_flip = bit(val, 12) != 0;
+  gpu.rectangle_texture_y_flip = bit(val, 13) != 0;
 
   return 0;
 }
 
-int GPU::gp0_drawing_area_top_left(u32 val) {
-  drawing_area_left = bits_in_range(val, 0, 9);
-  drawing_area_top = bits_in_range(val, 10, 19);
+static int gp0_drawing_area_top_left(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 val = buf.data[0];
+
+  gpu.drawing_area_left = bits_in_range(val, 0, 9);
+  gpu.drawing_area_top = bits_in_range(val, 10, 19);
   return 0;
 }
 
-int GPU::gp0_drawing_area_bottom_right(u32 val) {
-  drawing_area_right = bits_in_range(val, 0, 9);
-  drawing_area_bottom = bits_in_range(val, 10, 19);
+static int gp0_drawing_area_bottom_right(GPU &gpu,
+                                         const GPUcommandBuffer &buf) {
+  u32 val = buf.data[0];
+
+  gpu.drawing_area_right = bits_in_range(val, 0, 9);
+  gpu.drawing_area_bottom = bits_in_range(val, 10, 19);
   return 0;
 }
 
-int GPU::gp0_drawing_offset(u32 val) {
+static int gp0_drawing_offset(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 val = buf.data[0];
+  
   u32 x = bits_in_range(val, 0, 10);
   u32 y = bits_in_range(val, 11, 21);
 
-  //values are 11 bit signed, forcing sign extension
-  drawing_x_offset = (static_cast<i16>(x << 5)) >> 5;
-  drawing_y_offset = (static_cast<i16>(y << 5)) >> 5;
+  // values are 11 bit signed, forcing sign extension
+  gpu.drawing_x_offset = (static_cast<i16>(x << 5)) >> 5;
+  gpu.drawing_y_offset = (static_cast<i16>(y << 5)) >> 5;
 
   return 0;
 }
 
-int GPU::gp0_texture_window(u32 val) {
-  texture_window_x_mask = bits_in_range(val, 0, 4);
-  texture_window_y_mask = bits_in_range(val, 5, 9);
-  texture_window_x_offset = bits_in_range(val, 10, 14);
-  texture_window_y_offset = bits_in_range(val, 15, 19);
+static int gp0_texture_window(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 val = buf.data[0];
+  
+  gpu.texture_window_x_mask = bits_in_range(val, 0, 4);
+  gpu.texture_window_y_mask = bits_in_range(val, 5, 9);
+  gpu.texture_window_x_offset = bits_in_range(val, 10, 14);
+  gpu.texture_window_y_offset = bits_in_range(val, 15, 19);
+  
   return 0;
 }
 
-int GPU::gp0_mask_bit_setting(u32 val) {
-  force_set_mask_bit = bit(val, 0) != 0;
-  preserve_masked_pixels = bit(val, 1) != 0;
+static int gp0_mask_bit_setting(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 val = buf.data[0];
+  
+  gpu.force_set_mask_bit = bit(val, 0) != 0;
+  gpu.preserve_masked_pixels = bit(val, 1) != 0;
+  
   return 0;
 }
- 
+
+static int gp0_quad_mono_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  printf("Draw quad\n");
+  return 0;
+}
+
+static int gp0_nope(GPU &gpu, const GPUcommandBuffer &buf) { return 0; }
+
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
-  switch (opcode) {
-  case 0x00:
-    return 0;
-  case 0xe1:
-    return gp0_draw_mode(val);
-  case 0xe2:
-    return gp0_texture_window(val);
-  case 0xe3:
-    return gp0_drawing_area_top_left(val);
-  case 0xe4:
-    return gp0_drawing_area_bottom_right(val);
-  case 0xe5:
-    return gp0_drawing_offset(val);
-  case 0xe6:
-    return gp0_mask_bit_setting(val);
+  if (gp0_cmd_pending_arg_count == 0) {
+
+    clear(gp0_cmd_buf);
+
+    switch (opcode) {
+    case 0x00:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_nope;
+      break;
+    case 0x28:
+      gp0_cmd_pending_arg_count = 5;
+      gp0_cmd = gp0_quad_mono_opaque;
+      break;
+    case 0xe1:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_draw_mode;
+      break;
+    case 0xe2:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_texture_window;
+      break;
+    case 0xe3:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_drawing_area_top_left;
+      break;
+    case 0xe4:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_drawing_area_bottom_right;
+      break;
+    case 0xe5:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_drawing_offset;
+      break;
+    case 0xe6:
+      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd = gp0_mask_bit_setting;
+      break;
+
+    default:
+      printf("Unhandled GP0 command %08x\n", val);
+      return -1;
+    }
   }
 
-  fprintf(stderr, "Unhandled GP0 command %08x\n", val);
-  return -1;
+  append(gp0_cmd_buf, val);
+  --gp0_cmd_pending_arg_count;
+
+  if (gp0_cmd_pending_arg_count == 0) {
+    return gp0_cmd(*this, gp0_cmd_buf);
+  }
+
+  return 0;
 }
 
-int GPU::gp1_dma_direction(u32 val) {
-  switch(bits_in_range(val, 0, 1)) {
+int gp1_dma_direction(GPU &gpu, u32 val) {
+  switch (bits_in_range(val, 0, 1)) {
   case 0:
-    dma_direction = DMAdirection::off;
+    gpu.dma_direction = DMAdirection::off;
     break;
   case 1:
-    dma_direction = DMAdirection::fifo;
+    gpu.dma_direction = DMAdirection::fifo;
     break;
   case 2:
-    dma_direction = DMAdirection::cpu_to_gp0;
+    gpu.dma_direction = DMAdirection::cpu_to_gp0;
     break;
   case 3:
-    dma_direction = DMAdirection::vram_to_cpu;
+    gpu.dma_direction = DMAdirection::vram_to_cpu;
     break;
   }
 
   return 0;
 }
 
-int GPU::gp1_soft_reset(u32 val) {
-  interrupt = false;
+int gp1_soft_reset(GPU &gpu, u32 val) {
+  gpu.interrupt = false;
 
-  page_base_x = 0;
-  page_base_y = 0;
-  semi_transparency = 0;
-  tex_depth = TextureDepth::t4bit;
-  
-  texture_window_x_mask = 0;
-  texture_window_y_mask = 0;
-  texture_window_x_offset = 0;
-  texture_window_y_offset = 0;
-  
-  dithering = false;
-  draw_to_display = false;
-  texture_disable = false;
-  rectangle_texture_x_flip = false;
-  rectangle_texture_y_flip = false;
-  drawing_area_left = 0;
-  drawing_area_top = 0;
-  drawing_area_right = 0;
-  drawing_area_bottom = 0;
-  drawing_x_offset = 0;
-  drawing_y_offset = 0;
-  force_set_mask_bit = false;
-  preserve_masked_pixels = false;
+  gpu.page_base_x = 0;
+  gpu.page_base_y = 0;
+  gpu.semi_transparency = 0;
+  gpu.tex_depth = TextureDepth::t4bit;
+
+  gpu.texture_window_x_mask = 0;
+  gpu.texture_window_y_mask = 0;
+  gpu.texture_window_x_offset = 0;
+  gpu.texture_window_y_offset = 0;
+
+  gpu.dithering = false;
+  gpu.draw_to_display = false;
+  gpu.texture_disable = false;
+  gpu.rectangle_texture_x_flip = false;
+  gpu.rectangle_texture_y_flip = false;
+  gpu.drawing_area_left = 0;
+  gpu.drawing_area_top = 0;
+  gpu.drawing_area_right = 0;
+  gpu.drawing_area_bottom = 0;
+  gpu.drawing_x_offset = 0;
+  gpu.drawing_y_offset = 0;
+  gpu.force_set_mask_bit = false;
+  gpu.preserve_masked_pixels = false;
 
   // REVIEW: field is not being reset
 
-  dma_direction = DMAdirection::off;
+  gpu.dma_direction = DMAdirection::off;
 
-  display_disabled = true;
-  display_vram_x_start = 0;
-  display_vram_y_start = 0;
-  hres = hres_from_fields(0, 0);
-  vres = VerticalRes::y240lines;
+  gpu.display_disabled = true;
+  gpu.display_vram_x_start = 0;
+  gpu.display_vram_y_start = 0;
+  gpu.hres = hres_from_fields(0, 0);
+  gpu.vres = VerticalRes::y240lines;
 
-  video_mode = VideoMode::ntsc;
-  interlaced = true;
-  display_horiz_start = 0x200;
-  display_horiz_end = 0xc00;
-  display_line_start = 0x10;
-  display_line_end = 0x100;
-  display_depth = DisplayDepth::d15bits;
+  gpu.video_mode = VideoMode::ntsc;
+  gpu.interlaced = true;
+  gpu.display_horiz_start = 0x200;
+  gpu.display_horiz_end = 0xc00;
+  gpu.display_line_start = 0x10;
+  gpu.display_line_end = 0x100;
+  gpu.display_depth = DisplayDepth::d15bits;
 
   // TODO: should also clear the command FIFO
   // TODO: should also invalidate GPU cache
@@ -162,35 +217,32 @@ int GPU::gp1_soft_reset(u32 val) {
   return 0;
 }
 
-int GPU::gp1_display_mode(u32 val) {
+int gp1_display_mode(GPU &gpu, u32 val) {
   u8 hr1 = bits_in_range(val, 0, 1);
   u8 hr2 = bit(val, 6);
-  hres = hres_from_fields(hr1, hr2);
+  gpu.hres = hres_from_fields(hr1, hr2);
 
-  if(bit(val, 2) != 0) {
-    vres = VerticalRes::y480lines;
-  }
-  else {
-    vres = VerticalRes::y240lines;
-  }
-
-  if(bit(val, 3) != 0) {
-    video_mode = VideoMode::pal;
-  }
-  else {
-    video_mode = VideoMode::ntsc;
+  if (bit(val, 2) != 0) {
+    gpu.vres = VerticalRes::y480lines;
+  } else {
+    gpu.vres = VerticalRes::y240lines;
   }
 
-  if(bit(val, 4) != 0) {
-    display_depth = DisplayDepth::d15bits;
-  }
-  else {
-    display_depth = DisplayDepth::d24bits;
+  if (bit(val, 3) != 0) {
+    gpu.video_mode = VideoMode::pal;
+  } else {
+    gpu.video_mode = VideoMode::ntsc;
   }
 
-  interlaced = bit(val, 5) != 0;
+  if (bit(val, 4) != 0) {
+    gpu.display_depth = DisplayDepth::d15bits;
+  } else {
+    gpu.display_depth = DisplayDepth::d24bits;
+  }
 
-  if(bit(val, 7) != 0) {
+  gpu.interlaced = bit(val, 5) != 0;
+
+  if (bit(val, 7) != 0) {
     printf("Unsupported display mode %08x\n", val);
     return -1;
   }
@@ -198,25 +250,41 @@ int GPU::gp1_display_mode(u32 val) {
   return 0;
 }
 
-int GPU::gp1_display_vram_start(u32 val) {
+int gp1_display_vram_start(GPU &gpu, u32 val) {
   // lsb ignored to be always aligned to a 16 bit pixel
-  display_vram_x_start = (val & 0b1111111110);
-  display_vram_y_start = bits_in_range(val, 10, 18);
+  gpu.display_vram_x_start = (val & 0b1111111110);
+  gpu.display_vram_y_start = bits_in_range(val, 10, 18);
+  return 0;
+}
+
+int gp1_display_horizontal_range(GPU &gpu, u32 val) {
+  gpu.display_horiz_start = bits_in_range(val, 0, 11);
+  gpu.display_horiz_end = bits_in_range(val, 12, 23);
+  return 0;
+}
+
+int gp1_display_vertical_range(GPU &gpu, u32 val) {
+  gpu.display_line_start = bits_in_range(val, 0, 9);
+  gpu.display_line_end = bits_in_range(val, 10, 19);
   return 0;
 }
 
 int GPU::gp1(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
-  switch(opcode) {
+  switch (opcode) {
   case 0x00:
-    return gp1_soft_reset(val);
+    return gp1_soft_reset(*this, val);
   case 0x04:
-    return gp1_dma_direction(val);
+    return gp1_dma_direction(*this, val);
   case 0x05:
-    return gp1_display_vram_start(val);
+    return gp1_display_vram_start(*this, val);
+  case 0x06:
+    return gp1_display_horizontal_range(*this, val);
+  case 0x07:
+    return gp1_display_vertical_range(*this, val);
   case 0x08:
-    return gp1_display_mode(val);
+    return gp1_display_mode(*this, val);
   default:
     printf("Unhandled GP1 command %08x\n", val);
     return -1;

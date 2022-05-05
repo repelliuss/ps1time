@@ -38,7 +38,18 @@ enum struct DMAdirection : u8 {
   cpu_to_gp0 = 2,
   vram_to_cpu = 3
 };
- 
+
+struct GPUcommandBuffer {
+  u32 data[12];
+  u8 count = 0;
+};
+
+constexpr void clear(GPUcommandBuffer &buf) { buf.count = 0; }
+
+constexpr void append(GPUcommandBuffer &buf, u32 val) {
+  buf.data[buf.count++] = val;
+}
+
 /// Video output horizontal resolution
 struct HorizontalRes {
   u8 val;
@@ -168,6 +179,12 @@ struct GPU {
   /// use external assers (pre-rendered textures, MDEC, etc...)
   DisplayDepth display_depth = DisplayDepth::d15bits;
 
+  using GPUcommand = int(*)(GPU&, const GPUcommandBuffer &buf);
+
+  GPUcommandBuffer gp0_cmd_buf;
+  u32 gp0_cmd_pending_arg_count = 0;
+  GPUcommand gp0_cmd;
+
   constexpr u32 status() {
     u32 val = 0;
 
@@ -237,16 +254,4 @@ struct GPU {
 
   int gp0(u32 val);
   int gp1(u32 val);
-
-  int gp0_draw_mode(u32 val);
-  int gp0_drawing_area_top_left(u32 val);
-  int gp0_drawing_area_bottom_right(u32 val);
-  int gp0_drawing_offset(u32 val);
-  int gp0_texture_window(u32 val);
-  int gp0_mask_bit_setting(u32 val);
-
-  int gp1_dma_direction(u32 val);
-  int gp1_soft_reset(u32 val);
-  int gp1_display_mode(u32 val);
-  int gp1_display_vram_start(u32 val);
 };
