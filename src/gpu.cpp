@@ -65,24 +65,25 @@ static int gp0_drawing_offset(GPU &gpu, const GPUcommandBuffer &buf) {
 
 static int gp0_texture_window(GPU &gpu, const GPUcommandBuffer &buf) {
   u32 val = buf.data[0];
-  
+
   gpu.texture_window_x_mask = bits_in_range(val, 0, 4);
   gpu.texture_window_y_mask = bits_in_range(val, 5, 9);
   gpu.texture_window_x_offset = bits_in_range(val, 10, 14);
   gpu.texture_window_y_offset = bits_in_range(val, 15, 19);
-  
+
   return 0;
 }
 
 static int gp0_mask_bit_setting(GPU &gpu, const GPUcommandBuffer &buf) {
   u32 val = buf.data[0];
-  
+
   gpu.force_set_mask_bit = bit(val, 0) != 0;
   gpu.preserve_masked_pixels = bit(val, 1) != 0;
-  
+
   return 0;
 }
 
+// TODO: unimplemented
 static int gp0_quad_mono_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
   printf("Draw quad\n");
   return 0;
@@ -90,44 +91,74 @@ static int gp0_quad_mono_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
 
 static int gp0_nope(GPU &gpu, const GPUcommandBuffer &buf) { return 0; }
 
+// TODO: unimplemented
+static int gp0_clear_cache(GPU &gpu, const GPUcommandBuffer &buf) { return 0; }
+
+static int gp0_load_image(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 resolution = buf.data[2];
+
+  u32 width = resolution & 0xffff;
+  u32 height = resolution >> 16;
+
+  u32 img_size = width * height;
+
+  // NOTE: round up if odd, gpu uses 16bits aligned
+  img_size = (img_size + 1) & (~1);
+
+  // NOTE: number of words
+  gpu.gp0_cmd_pending_words_count = img_size / 2;
+
+  gpu.gp0_mode = GP0mode::img_load;
+  
+  return 0;
+}
+
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
-  if (gp0_cmd_pending_arg_count == 0) {
+  if (gp0_cmd_pending_words_count == 0) {
 
     clear(gp0_cmd_buf);
 
     switch (opcode) {
     case 0x00:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_nope;
       break;
+    case 0x01:
+      gp0_cmd_pending_words_count = 1;
+      gp0_cmd = gp0_clear_cache;
+      break;
     case 0x28:
-      gp0_cmd_pending_arg_count = 5;
+      gp0_cmd_pending_words_count = 5;
       gp0_cmd = gp0_quad_mono_opaque;
       break;
+    case 0xa0:
+      gp0_cmd_pending_words_count = 3;
+      gp0_cmd = gp0_load_image;
+      break;
     case 0xe1:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_draw_mode;
       break;
     case 0xe2:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_texture_window;
       break;
     case 0xe3:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_drawing_area_top_left;
       break;
     case 0xe4:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_drawing_area_bottom_right;
       break;
     case 0xe5:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_drawing_offset;
       break;
     case 0xe6:
-      gp0_cmd_pending_arg_count = 1;
+      gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_mask_bit_setting;
       break;
 
@@ -137,11 +168,19 @@ int GPU::gp0(u32 val) {
     }
   }
 
-  append(gp0_cmd_buf, val);
-  --gp0_cmd_pending_arg_count;
+  --gp0_cmd_pending_words_count;
 
-  if (gp0_cmd_pending_arg_count == 0) {
-    return gp0_cmd(*this, gp0_cmd_buf);
+  if (gp0_mode == GP0mode::command) {
+    append(gp0_cmd_buf, val);
+    if (gp0_cmd_pending_words_count == 0) {
+      return gp0_cmd(*this, gp0_cmd_buf);
+    }
+  } else {
+    // TODO: should copy pixel data to vram
+    if (gp0_cmd_pending_words_count == 0) {
+      // load done
+      gp0_mode = GP0mode::command;
+    }
   }
 
   return 0;

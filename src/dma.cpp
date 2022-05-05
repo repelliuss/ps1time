@@ -238,6 +238,8 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
     // maybe hardware does the same gotta check
   } while ((header & 0x800000) == 0);
 
+  printf("End of table\n");
+
   chview::finalize_transfer(chview);
 
   return 0;
@@ -263,7 +265,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
 
       switch (chview.type) {
       case DMA::ChannelView::Type::GPU:
-        printf("GPU data %08x\n", src_word);
+        dma.gpu.gp0(src_word);
         break;
       default:
         fprintf(stderr, "Unhandled DMA destination port %d\n", chview.type);

@@ -4,6 +4,11 @@
 #include "bits.hpp"
 #include "range.hpp"
 
+enum struct GP0mode {
+  command,
+  img_load,
+};
+
 /// Depth of the pixel values in a texture page
 enum struct TextureDepth : u8 {
   t4bit = 0,
@@ -182,8 +187,10 @@ struct GPU {
   using GPUcommand = int(*)(GPU&, const GPUcommandBuffer &buf);
 
   GPUcommandBuffer gp0_cmd_buf;
-  u32 gp0_cmd_pending_arg_count = 0;
+  u32 gp0_cmd_pending_words_count = 0;
   GPUcommand gp0_cmd;
+
+  GP0mode gp0_mode = GP0mode::command;
 
   constexpr u32 status() {
     u32 val = 0;
