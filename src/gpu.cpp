@@ -61,6 +61,12 @@ int GPU::gp0_texture_window(u32 val) {
   texture_window_y_offset = bits_in_range(val, 15, 19);
   return 0;
 }
+
+int GPU::gp0_mask_bit_setting(u32 val) {
+  force_set_mask_bit = bit(val, 0) != 0;
+  preserve_masked_pixels = bit(val, 1) != 0;
+  return 0;
+}
  
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
@@ -78,6 +84,8 @@ int GPU::gp0(u32 val) {
     return gp0_drawing_area_bottom_right(val);
   case 0xe5:
     return gp0_drawing_offset(val);
+  case 0xe6:
+    return gp0_mask_bit_setting(val);
   }
 
   fprintf(stderr, "Unhandled GP0 command %08x\n", val);
