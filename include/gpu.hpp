@@ -239,6 +239,7 @@ struct GPU {
   int gp0_drawing_area_top_left(u32 val);
   int gp0_drawing_area_bottom_right(u32 val);
   int gp0_drawing_offset(u32 val);
+  int gp0_texture_window(u32 val);
   
   int gp1_dma_direction(u32 val);
   int gp1_soft_reset(u32 val);

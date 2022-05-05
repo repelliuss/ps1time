@@ -53,6 +53,14 @@ int GPU::gp0_drawing_offset(u32 val) {
 
   return 0;
 }
+
+int GPU::gp0_texture_window(u32 val) {
+  texture_window_x_mask = bits_in_range(val, 0, 4);
+  texture_window_y_mask = bits_in_range(val, 5, 9);
+  texture_window_x_offset = bits_in_range(val, 10, 14);
+  texture_window_y_offset = bits_in_range(val, 15, 19);
+  return 0;
+}
  
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
@@ -62,6 +70,8 @@ int GPU::gp0(u32 val) {
     return 0;
   case 0xe1:
     return gp0_draw_mode(val);
+  case 0xe2:
+    return gp0_texture_window(val);
   case 0xe3:
     return gp0_drawing_area_top_left(val);
   case 0xe4:
