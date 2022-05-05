@@ -257,8 +257,7 @@ struct GPU {
     return val;
   }
 
-  constexpr u32 read() { return 0; }
-
+  u32 read();
   int gp0(u32 val);
   int gp1(u32 val);
 };

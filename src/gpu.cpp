@@ -113,6 +113,16 @@ static int gp0_load_image(GPU &gpu, const GPUcommandBuffer &buf) {
   return 0;
 }
 
+static int gp0_store_image(GPU &gpu, const GPUcommandBuffer &buf) {
+  u32 resolution = buf.data[2];
+
+  u32 width = resolution & 0xffff;
+  u32 height = resolution >> 16;
+
+  printf("Unhandled image store: %dx%d\n", width, height);
+  return 0;
+}
+
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
@@ -136,6 +146,10 @@ int GPU::gp0(u32 val) {
     case 0xa0:
       gp0_cmd_pending_words_count = 3;
       gp0_cmd = gp0_load_image;
+      break;
+    case 0xc0:
+      gp0_cmd_pending_words_count = 3;
+      gp0_cmd = gp0_store_image;
       break;
     case 0xe1:
       gp0_cmd_pending_words_count = 1;
@@ -328,4 +342,9 @@ int GPU::gp1(u32 val) {
     printf("Unhandled GP1 command %08x\n", val);
     return -1;
   }
+}
+
+u32 GPU::read() {
+  printf("GPUREAD\n");
+  return 0;
 }
