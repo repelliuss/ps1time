@@ -185,7 +185,10 @@ struct GPU {
 
     val |= static_cast<u32>(texture_disable) << 15;
     val |= hres.into_status();
-    val |= static_cast<u32>(vres) << 19;
+
+    // HACK: need to emulate bit 13 or returning 1 here locks BIOS
+    // val |= static_cast<u32>(vres) << 19;
+    
     val |= static_cast<u32>(video_mode) << 20;
     val |= static_cast<u32>(display_depth) << 21;
     val |= static_cast<u32>(interlaced) << 22;
