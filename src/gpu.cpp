@@ -123,6 +123,21 @@ static int gp0_store_image(GPU &gpu, const GPUcommandBuffer &buf) {
   return 0;
 }
 
+static int gp0_quad_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  printf("Draw quad shaded\n");
+  return 0;
+}
+
+static int gp0_triangle_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  printf("Draw triangle shaded\n");
+  return 0;
+}
+
+int gp0_quad_texture_blend_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  printf("Draw quad texture blending\n");
+  return 0;
+}
+
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
@@ -142,6 +157,18 @@ int GPU::gp0(u32 val) {
     case 0x28:
       gp0_cmd_pending_words_count = 5;
       gp0_cmd = gp0_quad_mono_opaque;
+      break;
+    case 0x2c:
+      gp0_cmd_pending_words_count = 9;
+      gp0_cmd = gp0_quad_mono_opaque;
+      break;
+    case 0x30:
+      gp0_cmd_pending_words_count = 6;
+      gp0_cmd = gp0_triangle_shaded_opaque;
+      break;
+    case 0x38:
+      gp0_cmd_pending_words_count = 8;
+      gp0_cmd = gp0_quad_shaded_opaque;
       break;
     case 0xa0:
       gp0_cmd_pending_words_count = 3;
