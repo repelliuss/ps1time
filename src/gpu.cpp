@@ -132,7 +132,20 @@ static int gp0_quad_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
 }
 
 static int gp0_triangle_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
-  printf("Draw triangle shaded\n");
+  Position positions[3] = {
+      pos_from_gp0(buf.data[1]),
+      pos_from_gp0(buf.data[3]),
+      pos_from_gp0(buf.data[5]),
+  };
+
+  Color colors[3] = {
+    color_from_gp0(buf.data[0]),
+    color_from_gp0(buf.data[2]),
+    color_from_gp0(buf.data[4]),
+  };
+
+  gpu.renderer->put_triangle(positions, colors);
+    
   return 0;
 }
 
