@@ -56,3 +56,58 @@ int read_file(u8 *out, const std::filesystem::path path, const u32 size) {
   
   return status;
 }
+
+int read_file(char *out, const std::filesystem::path path, const u32 size) {
+  int status = 0;
+
+  if (out == nullptr) {
+    printf("Unable to read file, out is null");
+    return -1;
+  }
+
+  FILE *fp = std::fopen(path.c_str(), "r");
+  if (!fp) {
+    printf("Unable to open BIOS image file '%s'.\n", path.c_str());
+    status = -1;
+  } else if (std::fread(out, 1, size, fp) != size) {
+    printf("Failed to read BIOS image.\n");
+    status = -1;
+  }
+
+  std::fclose(fp);
+
+  return status;
+}
+
+int file_size(u32 &size, std::filesystem::path path) {
+  std::error_code ec;
+  size = std::filesystem::file_size(path, ec);
+  if (ec) {
+    fprintf(stderr, "Failed to read file size of file %s : %s\n", path.c_str(),
+            ec.message().c_str());
+    return -1;
+  }
+
+  return 0;
+}
+
+int read_whole_file(char **str, const std::filesystem::path path) {
+  int status;
+  u32 size;
+
+  status = file_size(size, path);
+  if (status < 0)
+    return status;
+
+  *str = static_cast<char *>(malloc((size + 1) * sizeof(char)));
+
+  status = read_file(*str, path, size);
+  if (status < 0) {
+    free(str);
+    return status;
+  }
+
+  (*str)[size] = 0;
+
+  return 0;
+}
