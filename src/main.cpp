@@ -1,6 +1,7 @@
 #include "bios.hpp"
 #include "cpu.hpp"
 #include "data.hpp"
+#include "renderer.hpp"
 
 #include <iostream>
 #include <filesystem>
@@ -12,12 +13,21 @@ int main() {
   Bios bios;
 
   // TODO: handle fixed path
-  if (read_file(bios.data, "res/SCPH1001.BIN", Bios::size)) {
+  if (read_file(bios.data, "res/bios/SCPH1001.BIN", Bios::size)) {
     return -1;
   }
 
+  Renderer renderer;
+
+  renderer.create_window_and_context();
+  if(renderer.compile_shaders_link_program() < 0) {
+    return -1;
+  }
+  renderer.init_buffers();
+
   PCI pci = PCI();
   pci.bios = bios;
+  pci.gpu.renderer = &renderer;
   
   CPU cpu = CPU(pci);
 
@@ -30,6 +40,9 @@ int main() {
   // printf("%lu", i);
 
    // NOTE: good instructions count: 20062004
+
+  renderer.clean_buffers();
+  renderer.clean_program_and_shaders();
 
   return 0;
 }

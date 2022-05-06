@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "bits.hpp"
 #include "range.hpp"
+#include "renderer.hpp"
 
 enum struct GP0mode {
   command,
@@ -191,6 +192,8 @@ struct GPU {
   GPUcommand gp0_cmd;
 
   GP0mode gp0_mode = GP0mode::command;
+
+  Renderer *renderer;
 
   constexpr u32 status() {
     u32 val = 0;

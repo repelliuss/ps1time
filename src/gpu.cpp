@@ -1,4 +1,5 @@
 #include "gpu.hpp"
+#include "intrinsic.hpp"
 
 #include <stdio.h>
 
@@ -59,6 +60,8 @@ static int gp0_drawing_offset(GPU &gpu, const GPUcommandBuffer &buf) {
   // values are 11 bit signed, forcing sign extension
   gpu.drawing_x_offset = (static_cast<i16>(x << 5)) >> 5;
   gpu.drawing_y_offset = (static_cast<i16>(y << 5)) >> 5;
+
+  gpu.renderer->display();
 
   return 0;
 }
