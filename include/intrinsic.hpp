@@ -5,6 +5,9 @@
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 
+// REVIEW: this constant
+constexpr u32 MAX_VERTEX_BUFFER_LEN = 64 * 1024;
+
 struct Position {
   GLshort x, y;
 };
@@ -27,7 +30,7 @@ constexpr Color color_from_gp0(u32 val) {
 template <class T> struct Buffer {
   GLuint object;
   T *data;
-  constexpr T& operator[](int index);
+  T& operator[](int index);
 };
-template <class T> Buffer<T> make_buffer();
-template <class T> int clean(Buffer<T> buffer);
+template <class T> Buffer<T> make_gl_buffer_and_bind();
+template <class T> void clean(Buffer<T> buffer);
