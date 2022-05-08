@@ -174,7 +174,7 @@ int GPU::gp0(u32 val) {
       break;
     case 0x2c:
       gp0_cmd_pending_words_count = 9;
-      gp0_cmd = gp0_quad_mono_opaque;
+      gp0_cmd = gp0_quad_texture_blend_opaque;
       break;
     case 0x30:
       gp0_cmd_pending_words_count = 6;
