@@ -35,6 +35,7 @@ struct Renderer {
   void clean_buffers();
 
   int put_triangle(const Position positions[3], const Color colors[3]);
+  int put_quad(const Position positions[4], const Color colors[4]);
   int draw();
   int display();
 

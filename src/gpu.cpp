@@ -86,8 +86,21 @@ static int gp0_mask_bit_setting(GPU &gpu, const GPUcommandBuffer &buf) {
 
 // TODO: unimplemented
 static int gp0_quad_mono_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
-  printf("Draw quad\n");
-  return 0;
+  const Position positions[4] = {
+      pos_from_gp0(buf.data[1]),
+      pos_from_gp0(buf.data[2]),
+      pos_from_gp0(buf.data[3]),
+      pos_from_gp0(buf.data[4]),
+  };
+
+  const Color colors[4] = {
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[0]),
+  };
+
+  return gpu.renderer->put_quad(positions, colors);
 }
 
 static int gp0_nope(GPU &gpu, const GPUcommandBuffer &buf) { return 0; }
@@ -125,8 +138,21 @@ static int gp0_store_image(GPU &gpu, const GPUcommandBuffer &buf) {
 }
 
 static int gp0_quad_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
-  printf("Draw quad shaded\n");
-  return 0;
+  const Position positions[4] = {
+      pos_from_gp0(buf.data[1]),
+      pos_from_gp0(buf.data[3]),
+      pos_from_gp0(buf.data[5]),
+      pos_from_gp0(buf.data[7]),
+  };
+
+  const Color colors[4]{
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[2]),
+      color_from_gp0(buf.data[4]),
+      color_from_gp0(buf.data[6]),
+  };
+
+  return gpu.renderer->put_quad(positions, colors);
 }
 
 static int gp0_triangle_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
@@ -148,8 +174,21 @@ static int gp0_triangle_shaded_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
 }
 
 int gp0_quad_texture_blend_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
-  printf("Draw quad texture blending\n");
-  return 0;
+  Position positions[4] = {
+      pos_from_gp0(buf.data[1]),
+      pos_from_gp0(buf.data[3]),
+      pos_from_gp0(buf.data[5]),
+      pos_from_gp0(buf.data[7]),
+  };
+
+  Color colors[4] = {
+      color(0x80, 0x00, 0x00),
+      color(0x80, 0x00, 0x00),
+      color(0x80, 0x00, 0x00),
+      color(0x80, 0x00, 0x00),
+  };
+
+  return gpu.renderer->put_quad(positions, colors);
 }
 
 int GPU::gp0(u32 val) {

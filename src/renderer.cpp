@@ -363,3 +363,27 @@ int Renderer::put_triangle(const Position positions[3], const Color colors[3]) {
 
   return 0;
 }
+
+int Renderer::put_quad(const Position positions[4], const Color colors[4]) {
+  if (count_vertices + 6 >= MAX_VERTEX_BUFFER_LEN) {
+    printf("Vertex attribute buffers full, forcing_draw\n");
+    int status = draw();
+    if (status < 0) {
+      return status;
+    }
+  }
+
+  for (int i = 0; i < 3; ++i) {
+    buf_pos[count_vertices] = positions[i];
+    buf_color[count_vertices] = colors[i];
+    ++count_vertices;
+  }
+
+  for (int i = 1; i < 4; ++i) {
+    buf_pos[count_vertices] = positions[i];
+    buf_color[count_vertices] = colors[i];
+    ++count_vertices;
+  }
+
+  return 0;
+}

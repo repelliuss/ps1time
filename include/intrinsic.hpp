@@ -20,6 +20,9 @@ constexpr Position pos_from_gp0(u32 val) {
 struct Color {
   GLubyte r, g, b;
 };
+constexpr Color color(GLubyte r, GLubyte g, GLubyte b) {
+  return {.r = r, .g = g, .b = b};
+}
 constexpr Color color_from_gp0(u32 val) {
   u8 a = val;
   u8 b = val >> 8;
