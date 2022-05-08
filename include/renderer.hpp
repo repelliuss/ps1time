@@ -14,7 +14,7 @@
 // };
 
 struct Renderer {
-  Renderer();
+  Renderer(bool debug = false);
   ~Renderer();
 
   Renderer(const Renderer &) = delete;
@@ -22,6 +22,9 @@ struct Renderer {
 
   Renderer &operator=(const Renderer &) = delete;
   Renderer &operator=(const Renderer &&) = delete;
+
+  bool had_error = false;
+  int has_errors();
 
   int create_window_and_context();
   
@@ -32,8 +35,8 @@ struct Renderer {
   void clean_buffers();
 
   int put_triangle(const Position positions[3], const Color colors[3]);
-  void draw();
-  void display();
+  int draw();
+  int display();
 
   SDL_Window *window = nullptr;
   SDL_GLContext gl_context = nullptr;

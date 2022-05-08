@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 #include "data.hpp"
 #include "intrinsic.hpp"
+#include <GL/glext.h>
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
@@ -11,12 +12,134 @@
 
 #include <assert.h>
 
-Renderer::Renderer() {
+static const char *gl_debug_severity(GLenum severity) {
+  switch (severity) {
+  case GL_DEBUG_SEVERITY_HIGH:
+    return "High";
+  case GL_DEBUG_SEVERITY_MEDIUM:
+    return "Medium";
+  case GL_DEBUG_SEVERITY_LOW:
+    return "Low";
+  case GL_DEBUG_SEVERITY_NOTIFICATION:
+    return "Notification";
+  }
+
+  printf("val: %x\n", severity);
+
+  assert(false);
+  return "";
+}
+
+static const char *gl_debug_source(GLenum source) {
+  switch (source) {
+  case GL_DEBUG_SOURCE_API:
+    return "API";
+  case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+    return "WindowSystem";
+  case GL_DEBUG_SOURCE_SHADER_COMPILER:
+    return "ShaderCompiler";
+  case GL_DEBUG_SOURCE_THIRD_PARTY:
+    return "ThirdParty";
+  case GL_DEBUG_SOURCE_APPLICATION:
+    return "Application";
+  case GL_DEBUG_SOURCE_OTHER:
+    return "Other";
+  }
+
+  printf("val: %x\n", source);
+
+  assert(false);
+  return "";
+}
+
+static const char *gl_debug_type(GLenum type) {
+  switch (type) {
+  case GL_DEBUG_TYPE_ERROR:
+    return "Error";
+  case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+    return "DeprecatedBehavior";
+  case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+    return "UndefinedBehavior";
+  case GL_DEBUG_TYPE_PORTABILITY:
+    return "Portability";
+  case GL_DEBUG_TYPE_PERFORMANCE:
+    return "Performance";
+  case GL_DEBUG_TYPE_MARKER:
+    return "Marker";
+  case GL_DEBUG_TYPE_PUSH_GROUP:
+    return "PushGroup";
+  case GL_DEBUG_TYPE_POP_GROUP:
+    return "PopGroup";
+  case GL_DEBUG_TYPE_OTHER:
+    return "Other";
+  }
+
+  printf("val: %x\n", type);
+
+  assert(false);
+  return "";
+}
+
+static int check_gl_errors() {
+  bool fatal = false;
+
+  GLint max_msg_len = 0;
+  glGetIntegerv(GL_MAX_DEBUG_MESSAGE_LENGTH, &max_msg_len);
+
+  GLchar *msg_data =
+      static_cast<GLchar *>(malloc(sizeof(GLchar) * max_msg_len));
+  GLenum source;
+  GLenum type;
+  GLenum severity;
+  GLuint id;
+  GLsizei length;
+
+  GLint count = glGetDebugMessageLog(1, max_msg_len, &source, &type, &id,
+                                     &severity, &length, msg_data);
+  while (count != 0) {
+
+    // clang-format off
+    printf("OpenGL [%s|%s|%s|0x%x] %s\n",
+	   gl_debug_severity(severity),
+	   gl_debug_source(source),
+	   gl_debug_type(type),
+	   id,
+	   msg_data);
+    // clang-format on
+
+    if (severity == GL_DEBUG_SEVERITY_HIGH ||
+        severity == GL_DEBUG_SEVERITY_MEDIUM) {
+      fatal = true;
+    }
+
+    count = glGetDebugMessageLog(1, max_msg_len, &source, &type, &id, &severity,
+                                 &length, msg_data);
+  }
+
+  free(msg_data);
+
+  if (fatal) {
+    printf("Fatal OpenGL error\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+// NOTE: needs OpenGL DEBUG context
+int Renderer::has_errors() {
+  return had_error;
+}
+
+Renderer::Renderer(bool debug) {
   SDL_SetMainReady();
   SDL_Init(SDL_INIT_VIDEO);
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
+  if (debug)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 }
 
 int Renderer::create_window_and_context() {
@@ -53,6 +176,10 @@ static int compile_shader(GLuint &s, const GLchar *code, GLenum type) {
   GLuint shader = glCreateShader(type);
   glShaderSource(shader, 1, &code, nullptr);
   glCompileShader(shader);
+
+  if (check_gl_errors()) {
+    return -1;
+  }
 
   GLint status = GL_FALSE;
   glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
@@ -116,6 +243,10 @@ int Renderer::compile_shaders_link_program() {
 
   glLinkProgram(program);
 
+  if(has_errors()) {
+    return -1;
+  }
+
   status = GL_FALSE;
   glGetProgramiv(program, GL_LINK_STATUS, &status);
   if(status != GL_TRUE) {
@@ -143,6 +274,12 @@ static GLuint find_program_attrib(GLuint program, const char *attr) {
   return attr_index;
 }
 
+static void set_error(bool &val, int status) {
+  if(!val) {
+    val = status < 0;
+  }
+}
+
 void Renderer::init_buffers() {
   glGenVertexArrays(1, &vertex_array_object);
   glBindVertexArray(vertex_array_object);
@@ -154,12 +291,16 @@ void Renderer::init_buffers() {
     glVertexAttribIPointer(index, 2, GL_SHORT, 0, nullptr);
   }
 
+  set_error(had_error, check_gl_errors());
+
   {
     buf_color = make_gl_buffer_and_bind<Color>();
     GLuint index = find_program_attrib(program, "vertex_color");
     glEnableVertexAttribArray(index);
     glVertexAttribIPointer(index, 3, GL_UNSIGNED_BYTE, 0, nullptr);
   }
+
+  set_error(had_error, check_gl_errors());
 }
 
 void Renderer::clean_buffers() {
@@ -178,7 +319,7 @@ Renderer::~Renderer() {
   SDL_Quit();
 }
 
-void Renderer::draw() {
+int Renderer::draw() {
   glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
 
   glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(count_vertices));
@@ -191,17 +332,27 @@ void Renderer::draw() {
   } while (status != GL_ALREADY_SIGNALED && status != GL_CONDITION_SATISFIED);
 
   count_vertices = 0;
+
+  return check_gl_errors();
 }
 
-void Renderer::display() {
-  draw();
+int Renderer::display() {
+  int status = draw();
+  if (status < 0)
+    return status;
+  
   SDL_GL_SwapWindow(window);
+
+  return 0;
 }
 
 int Renderer::put_triangle(const Position positions[3], const Color colors[3]) {
   if (count_vertices + 3 >= MAX_VERTEX_BUFFER_LEN) {
     printf("Vertex attribute buffers full, forcing_draw\n");
-    draw();
+    int status = draw();
+    if (status < 0) {
+      return status;
+    }
   }
 
   for (int i = 0; i < 3; ++i) {

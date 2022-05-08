@@ -61,9 +61,7 @@ static int gp0_drawing_offset(GPU &gpu, const GPUcommandBuffer &buf) {
   gpu.drawing_x_offset = (static_cast<i16>(x << 5)) >> 5;
   gpu.drawing_y_offset = (static_cast<i16>(y << 5)) >> 5;
 
-  gpu.renderer->display();
-
-  return 0;
+  return gpu.renderer->display();
 }
 
 static int gp0_texture_window(GPU &gpu, const GPUcommandBuffer &buf) {

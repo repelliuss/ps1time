@@ -17,13 +17,17 @@ int main() {
     return -1;
   }
 
-  Renderer renderer;
+  Renderer renderer(true);
 
   renderer.create_window_and_context();
   if(renderer.compile_shaders_link_program() < 0) {
     return -1;
   }
+
   renderer.init_buffers();
+  if (renderer.has_errors()) {
+    return -1;
+  }
 
   PCI pci = PCI();
   pci.bios = bios;
@@ -38,8 +42,6 @@ int main() {
   }
 
   // printf("%lu", i);
-
-   // NOTE: good instructions count: 20062004
 
   renderer.clean_buffers();
   renderer.clean_program_and_shaders();
