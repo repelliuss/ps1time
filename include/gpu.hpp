@@ -129,12 +129,6 @@ struct GPU {
   /// Bottom-most column of drawing area
   u16 drawing_area_bottom = 0;
 
-  /// Horizontal drawing offset applied to all vertex
-  i16 drawing_x_offset = 0;
-
-  /// Vertical drawing offset applied to all vertex
-  i16 drawing_y_offset = 0;
-
   /// Force "mask" bit of the pixel to 1 when writing to VRAM, otherwise don't
   /// modify
   bool force_set_mask_bit = false;

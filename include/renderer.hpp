@@ -38,11 +38,13 @@ struct Renderer {
   int put_quad(const Position positions[4], const Color colors[4]);
   int draw();
   int display();
+  int set_drawing_offset(GLint x, GLint y);
 
   SDL_Window *window = nullptr;
   SDL_GLContext gl_context = nullptr;
 
   GLuint vertex_shader = 0;
+  GLint offset_program_index = 0;
   GLuint fragment_shader = 0;
   GLuint program = 0;
   GLuint vertex_array_object = 0;

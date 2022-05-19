@@ -58,8 +58,10 @@ static int gp0_drawing_offset(GPU &gpu, const GPUcommandBuffer &buf) {
   u32 y = bits_in_range(val, 11, 21);
 
   // values are 11 bit signed, forcing sign extension
-  gpu.drawing_x_offset = (static_cast<i16>(x << 5)) >> 5;
-  gpu.drawing_y_offset = (static_cast<i16>(y << 5)) >> 5;
+  i16 offset_x = (static_cast<i16>(x << 5)) >> 5;
+  i16 offset_y = (static_cast<i16>(y << 5)) >> 5;
+
+  gpu.renderer->set_drawing_offset(x, y);
 
   return gpu.renderer->display();
 }
@@ -321,8 +323,9 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   gpu.drawing_area_top = 0;
   gpu.drawing_area_right = 0;
   gpu.drawing_area_bottom = 0;
-  gpu.drawing_x_offset = 0;
-  gpu.drawing_y_offset = 0;
+
+  gpu.renderer->set_drawing_offset(0, 0);
+  
   gpu.force_set_mask_bit = false;
   gpu.preserve_masked_pixels = false;
 

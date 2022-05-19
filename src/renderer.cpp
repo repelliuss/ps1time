@@ -274,6 +274,16 @@ static GLuint find_program_attrib(GLuint program, const char *attr) {
   return attr_index;
 }
 
+static GLuint find_program_uniform(GLuint program, const char *uni) {
+  GLuint index = glGetUniformLocation(program, uni);
+
+  if(index < 0) {
+    printf("Uniform '%s' not found in program", uni);
+  }
+
+  return index;
+}
+
 static void set_error(bool &val, int status) {
   if(!val) {
     val = status < 0;
@@ -301,6 +311,11 @@ void Renderer::init_buffers() {
   }
 
   set_error(had_error, check_gl_errors());
+
+  {
+    offset_program_index = find_program_uniform(program, "offset");
+    glUniform2i(offset_program_index, 0, 0);
+  }
 }
 
 void Renderer::clean_buffers() {
@@ -385,5 +400,12 @@ int Renderer::put_quad(const Position positions[4], const Color colors[4]) {
     ++count_vertices;
   }
 
+  return 0;
+}
+
+int Renderer::set_drawing_offset(GLint x, GLint y) {
+  // REVIEW: can optimize here by handling vertex buffer properly
+  draw();			// render current drawings before changing offset
+  glUniform2i(offset_program_index, x, y);
   return 0;
 }
