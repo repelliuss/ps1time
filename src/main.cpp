@@ -3,6 +3,7 @@
 #include "data.hpp"
 #include "renderer.hpp"
 
+#include <SDL_events.h>
 #include <iostream>
 #include <filesystem>
 
@@ -35,10 +36,26 @@ int main() {
   
   CPU cpu = CPU(pci);
 
-  // u64 i = 0;
+  int status = 0;
 
-  while(!cpu.next()) {
-    // ++i;
+  while(!status) {
+    for(int i = 0; i < 1000000 && !status; ++i) {
+      status = cpu.next();
+    }
+
+    SDL_Event event;
+    while(SDL_PollEvent(&event)) {
+      switch(event.type) {
+      case SDL_KEYDOWN:
+        if (event.key.keysym.sym == SDLK_ESCAPE) {
+          status = 1;
+        }
+        break;
+      case SDL_QUIT:
+        status = 1;
+        break;
+      }
+    }
   }
 
   // printf("%lu", i);
@@ -46,5 +63,5 @@ int main() {
   renderer.clean_buffers();
   renderer.clean_program_and_shaders();
 
-  return 0;
+  return status;
 }
