@@ -117,4 +117,5 @@ struct PCI {
 
   int load32(u32 &val, u32 addr);
   int load16(u16 &val, u32 addr);
+  int load8(u8 &val, u32 addr);
 };

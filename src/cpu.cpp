@@ -691,52 +691,17 @@ int CPU::jr(const Instruction &i) {
   return 0;
 }
 
-// NOTE: only used for lbu, may require specific lb
-static int load8_prohibited(PCIType match, u32 offset, u32 addr) {
-  switch (match) {
-  case PCIType::ram:
-  case PCIType::bios:
-  case PCIType::expansion1: // NOTE: requires specific load value
-    return 0;
-  default:
-    printf("unhandled load8 at address %08x\n", addr);
-    return -1;
-  }
-}
-
-// NOTE: only used for lbu, may require specific lb
-static u8 load8_data(PCIType match, u8 *data, u32 offset) {
-  switch (match) {
-    // NOTE: lb expansion1 always return all 1s
-  case PCIType::expansion1:
-    return 0xff;
-  default:
-    return memory::load8(data, offset);
-  }
-}
-
 int CPU::lb(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load8_prohibited(match, offset, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
 
   pending_load.reg_index = i.rt();
 
   // byte is sign extended, so we are being careful
-  pending_load.val =
-      static_cast<u32>(static_cast<i8>(load8_data(match, data, offset)));
+  u8 val;
+  int status = pci.load8(val, addr);
+  pending_load.val = static_cast<i8>(val);
 
-  return 0;
+  return status;
 }
 
 int CPU::beq(const Instruction &i) {
@@ -804,24 +769,15 @@ int CPU::blez(const Instruction &i) {
 }
 
 int CPU::lbu(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load8_prohibited(match, offset, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
 
   pending_load.reg_index = i.rt();
-  pending_load.val = load8_data(match, data, offset);
 
-  return 0;
+  u8 val;
+  int status = pci.load8(val, addr);
+  pending_load.val = val;
+
+  return status;
 }
 
 int CPU::jalr(const Instruction &i) {

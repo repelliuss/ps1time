@@ -305,3 +305,74 @@ int PCI::load16(u16 &val, u32 addr) {
   LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
   return -1;
 }
+
+int PCI::load8(u8 &val, u32 addr) {
+  static const char *fn = "PCI::load8";
+  u32 index;
+
+  addr = mask_addr_to_region(addr);
+
+  if (!Bios::range.offset(index, addr)) {
+    val = memory::load8(bios.data, index);
+    return 0;
+  }
+
+  if (!MemCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "MemCtrl");
+    return -1;
+  }
+
+  if (!RamSize::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "RamSize");
+    return -1;
+  }
+
+  if (!CacheCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "CacheCtrl");
+    return -1;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    val = memory::load8(ram.data, index);
+    return 0;
+  }
+
+  if (!SPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "SPU");
+    return -1;
+  }
+
+  if (!Expansion1::range.offset(index, addr)) {
+    return ignore_load_with<u8>(val, fn, addr, index, "Expansion1", 0xff);
+  }
+
+  if (!Expansion2::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Expansion2");
+    return -1;
+  }
+
+  if (!IRQ::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "IRQ");
+    return -1;
+  }
+
+  if (!Timers::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Timers");
+    return -1;
+  }
+
+  if (!DMA::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "DMA");
+    return -1;
+  }
+
+  if (!GPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "GPU");
+    return -1;
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
+  return -1;
+}
+
+
