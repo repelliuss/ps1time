@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <cassert>
 
+namespace memory {
 // little endian
 u32 load32(u8 *data, u32 index) {
   // REVIEW: may require casts to u32
@@ -18,7 +19,7 @@ u16 load16(u8 *data, u32 index) {
   u16 b0 = data[index];
   u16 b1 = data[index + 1];
 
-  return  (b1 << 8) | b0;
+  return (b1 << 8) | b0;
 }
 
 u8 load8(u8 *data, u32 index) { return data[index]; }
@@ -38,6 +39,8 @@ void store16(u8 *data, u16 value, u32 index) {
 }
 
 void store8(u8 *data, u8 value, u32 index) { data[index] = value; }
+
+} // namespace memory
 
 int read_file(u8 *out, const std::filesystem::path path, const u32 size) {
   int status = 0;

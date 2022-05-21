@@ -313,7 +313,7 @@ int transfer(const DMA &dma, DMA::ChannelView &chview) {
 
 DMA::DMA(RAM &ram, GPU &gpu) : ram(ram), gpu(gpu) {
   // REVIEW: maybe introduce own store&load for each peripheral fns?
-  store32(data, 0x07654321, reg::control);
+  memory::store32(data, 0x07654321, reg::control);
 }
 
 // is an interrupt active?
@@ -369,11 +369,11 @@ DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
 
   return {
       .type = static_cast<ChannelView::Type>(entry_address),
-      .base_address = load32(data, entry_address),
-      .block_control = load32(data, entry_address + 0x4),
+      .base_address = memory::load32(data, entry_address),
+      .block_control = memory::load32(data, entry_address + 0x4),
 
       .channel_control_addr = data + entry_address + 0x8,
-      .channel_control = load32(data, entry_address + 0x8),
+      .channel_control = memory::load32(data, entry_address + 0x8),
   };
 }
 

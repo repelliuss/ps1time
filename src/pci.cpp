@@ -140,7 +140,7 @@ int PCI::store32_data(PCIType match, u8 *data, u32 offset, u32 val) {
     case DMA::reg::spu_channel_control:
     case DMA::reg::pio_channel_control:
     case DMA::reg::otc_channel_control:
-      store32(data, val, offset);
+      memory::store32(data, val, offset);
       {
         DMA::ChannelView channel = dma.make_channel_view(offset);
         return dma.try_transfer(channel);
@@ -149,14 +149,14 @@ int PCI::store32_data(PCIType match, u8 *data, u32 offset, u32 val) {
       break;
 
     default:
-      store32(data, val, offset);
+      memory::store32(data, val, offset);
       break;
     }
     break;
 
 
   default:
-    store32(data, val, offset);
+    memory::store32(data, val, offset);
     break;
   }
 
@@ -181,6 +181,6 @@ int PCI::load32_data(PCIType match, u8 *data, u32 offset) {
     return -1;
 
   default:
-    return load32(data, offset);
+    return memory::load32(data, offset);
   }
 }

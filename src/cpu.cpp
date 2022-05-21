@@ -91,7 +91,7 @@ int CPU::fetch(u32 &instruction_data, u32 addr) {
   u32 offset;
 
   if (pci.match(data, offset, addr) != PCIType::none) {
-    instruction_data = load32(data, offset);
+    instruction_data = memory::load32(data, offset);
     return 0;
   }
 
@@ -705,7 +705,7 @@ int CPU::sh(const Instruction &i) {
   if (status == 1)
     return 0;
 
-  store16(data, value, offset);
+  memory::store16(data, value, offset);
 
   return 0;
 }
@@ -761,7 +761,7 @@ int CPU::sb(const Instruction &i) {
 
   // NOTE: only ram store8 is valid and it doesn't do conversion
 
-  store8(data, value, offset);
+  memory::store8(data, value, offset);
   return 0;
 }
 
@@ -791,7 +791,7 @@ static u8 load8_data(PCIType match, u8 *data, u32 offset) {
   case PCIType::expansion1:
     return 0xff;
   default:
-    return load8(data, offset);
+    return memory::load8(data, offset);
   }
 }
 
@@ -1085,7 +1085,7 @@ static u16 load16_data(PCIType match, u8 *data, u32 offset) {
   case PCIType::irq:
     return 0;
   default:
-    return load16(data, offset);
+    return memory::load16(data, offset);
   }
 }
 
