@@ -978,61 +978,20 @@ int CPU::rfe(const Instruction &i) {
   return 0;
 }
 
-// NOTE: used only for lhu may require specific lh
-static int load16_prohibited(PCIType match, u32 offset, u32 addr) {
-  switch (match) {
-  case PCIType::ram:
-    return 0;
-    
-  case PCIType::spu: // NOTE: requires specific load value
-    printf("Unhandled read from SPU register %08x\n", addr);
-    return 0;
-
-  case PCIType::irq: // REVIEW: requires specific value
-    printf("IRQ control read %x\n", offset);
-    return 0;
-
-  default:
-    printf("unhandled load16 at address %08x\n", addr);
-    return -1;
-  }
-}
-
-static u16 load16_data(PCIType match, u8 *data, u32 offset) {
-  switch (match) {
-    // NOTE: lh spu always return 0
-  case PCIType::spu:
-  case PCIType::irq:
-    return 0;
-  default:
-    return memory::load16(data, offset);
-  }
-}
-
 int CPU::lhu(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
 
   if (addr % 2 != 0) {
     return exception(Cause::unaligned_load_addr);
   }
 
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load16_prohibited(match, offset, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
   pending_load.reg_index = i.rt();
-  pending_load.val = load16_data(match, data, offset);
 
-  return 0;
+  u16 val;
+  int status = pci.load16(val, addr);
+  pending_load.val = val;
+
+  return status;
 }
 
 int CPU::sllv(const Instruction &i) {
@@ -1042,29 +1001,19 @@ int CPU::sllv(const Instruction &i) {
 
 // TODO: call lhu and sign extend pending load value?
 int CPU::lh(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
 
   if (addr % 2 != 0) {
     return exception(Cause::unaligned_load_addr);
   }
 
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load16_prohibited(match, offset, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
   pending_load.reg_index = i.rt();
-  pending_load.val = static_cast<i16>(load16_data(match, data, offset));
 
-  return 0;
+  u16 val;
+  int status = pci.load16(val, addr);
+  pending_load.val = static_cast<i16>(val);
+  
+  return status;
 }
 
 int CPU::nor(const Instruction &i) {

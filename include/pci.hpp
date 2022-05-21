@@ -116,4 +116,5 @@ struct PCI {
   int store32_data(PCIType match, u8 *data, u32 offset, u32 val);
 
   int load32(u32 &val, u32 addr);
+  int load16(u16 &val, u32 addr);
 };

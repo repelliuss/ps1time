@@ -184,20 +184,17 @@ int PCI::load32(u32 &val, u32 addr) {
   }
 
   if (!MemCtrl::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
-              addr, index, "MemCtrl");
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "MemCtrl");
     return -1;
   }
 
   if (!RamSize::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
-              addr, index, "RamSize");
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "RamSize");
     return -1;
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
-              addr, index, "CacheCtrl");
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "CacheCtrl");
     return -1;
   }
 
@@ -207,20 +204,17 @@ int PCI::load32(u32 &val, u32 addr) {
   }
 
   if (!SPU::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
-              addr, index, "SPU");
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "SPU");
     return -1;
   }
 
   if (!Expansion1::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
-              addr, index, "Expansion1");
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Expansion1");
     return -1;
   }
 
   if (!Expansion2::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
-              addr, index, "Expansion2");
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Expansion2");
     return -1;
   }
 
@@ -240,8 +234,74 @@ int PCI::load32(u32 &val, u32 addr) {
     return gpu.load32(val, index);
   }
 
-  LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x] Unhandled", fn, addr,
-            addr);
+  LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
   return -1;
 }
 
+int PCI::load16(u16 &val, u32 addr) {
+  static const char *fn = "PCI::load16";
+  u32 index;
+  
+  addr = mask_addr_to_region(addr);
+
+  if (!Bios::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Bios");
+    return -1;
+  }
+
+  if (!MemCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "MemCtrl");
+    return -1;
+  }
+
+  if (!RamSize::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "RamSize");
+    return -1;
+  }
+
+  if (!CacheCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "CacheCtrl");
+    return -1;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    val = memory::load16(ram.data, index);
+    return 0;
+  }
+
+  if (!SPU::range.offset(index, addr)) {
+    return ignore_load_with<u16>(val, fn, addr, index, "SPU", 0);
+  }
+
+  if (!Expansion1::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Expansion1");
+    return -1;
+  }
+
+  if (!Expansion2::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Expansion2");
+    return -1;
+  }
+
+  if (!IRQ::range.offset(index, addr)) {
+    return ignore_load_with<u16>(val, fn, addr, index, "IRQ", 0);
+  }
+
+  if (!Timers::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Timers");
+    return -1;
+  }
+
+  if (!DMA::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "DMA");
+    return -1;
+  }
+
+  if (!GPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "GPU");
+    return -1;
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
+  return -1;
+}
