@@ -14,7 +14,7 @@
 // TODO: add u32, u16 pointers that is casted from u8*data and read specifically to read and write at once
 // TODO:  remove heap data and allocate all memory at once
 
-enum struct PCIMatch {
+enum struct PCIType {
   none = -1,
   bios,
   mem_ctrl,
@@ -107,7 +107,7 @@ struct PCI {
 
   PCI() : dma(ram, gpu) {}
   
-  PCIMatch match(u8*& out_data, u32& offset, u32 addr);
-  int store32_data(PCIMatch match, u8 *data, u32 offset, u32 val);
-  int load32_data(PCIMatch match, u8 *data, u32 offset);
+  PCIType match(u8*& out_data, u32& offset, u32 addr);
+  int store32_data(PCIType match, u8 *data, u32 offset, u32 val);
+  int load32_data(PCIType match, u8 *data, u32 offset);
 };

@@ -22,89 +22,89 @@ static constexpr void log_pci(const char *msg) {
   // printf("%s", msg);
 }
 
-PCIMatch PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
+PCIType PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(offset, addr)) {
     out_data = bios.data;
-    return PCIMatch::bios;
+    return PCIType::bios;
   }
 
   if (!MemCtrl::range.offset(offset, addr)) {
     log_pci("PCI::MemCtrl matched!\n");
     out_data = hw_regs.data;
-    return PCIMatch::mem_ctrl;
+    return PCIType::mem_ctrl;
   }
 
   if (!RamSize::range.offset(offset, addr)) {
     log_pci("PCI::RamSize matched!\n");
     out_data = ram_size.data;
-    return PCIMatch::ram_size;
+    return PCIType::ram_size;
   }
 
   if (!CacheCtrl::range.offset(offset, addr)) {
     log_pci("PCI::CacheCtrl matched!\n");
     out_data = cache_ctrl.data;
-    return PCIMatch::cache_ctrl;
+    return PCIType::cache_ctrl;
   }
 
   if (!RAM::range.offset(offset, addr)) {
     log_pci("PCI::RAM matched!\n");
     out_data = ram.data;
-    return PCIMatch::ram;
+    return PCIType::ram;
   }
 
   if (!SPU::range.offset(offset, addr)) {
     log_pci("PCI::SPU matched!\n");
     out_data = spu.data;
-    return PCIMatch::spu;
+    return PCIType::spu;
   }
 
   if (!Expansion1::range.offset(offset, addr)) {
     log_pci("PCI::Expansion1 matched!\n");
     out_data = expansion1.data;
-    return PCIMatch::expansion1;
+    return PCIType::expansion1;
   }
 
   if (!Expansion2::range.offset(offset, addr)) {
     log_pci("PCI::Expansion2 matched!\n");
     out_data = expansion2.data;
-    return PCIMatch::expansion2;
+    return PCIType::expansion2;
   }
 
   if (!IRQ::range.offset(offset, addr)) {
     log_pci("PCI::IRQ matched!\n");
     out_data = irq.data;
-    return PCIMatch::irq;
+    return PCIType::irq;
   }
 
   if (!Timers::range.offset(offset, addr)) {
     log_pci("PCI::Timers matched!\n");
     out_data = timers.data;
-    return PCIMatch::timers;
+    return PCIType::timers;
   }
 
   if (!DMA::range.offset(offset, addr)) {
     log_pci("PCI::DMA matched!\n");
     out_data = dma.data;
-    return PCIMatch::dma;
+    return PCIType::dma;
   }
 
   if (!GPU::range.offset(offset, addr)) {
     log_pci("PCI::GPU matched!\n");
     out_data = gpu.data;
-    return PCIMatch::gpu;
+    return PCIType::gpu;
   }
 
   // TODO: remove printf
   printf("No PCIMatch for addr: %#8x\n", addr);
 
-  return PCIMatch::none;
+  return PCIType::none;
 }
 
-int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
+int PCI::store32_data(PCIType match, u8 *data, u32 offset, u32 val) {
   switch (match) {
-  case PCIMatch::gpu:
+  case PCIType::gpu:
     switch (offset) {
     case 0:
       return gpu.gp0(val);
@@ -117,7 +117,7 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
 
     // TODO: logic here can be reduced with constraints to 0xZ0 where Z is
     // [0,6]?
-  case PCIMatch::dma:
+  case PCIType::dma:
     switch (offset) {
     case DMA::reg::interrupt:
       dma.set_interrupt(val);
@@ -164,13 +164,13 @@ int PCI::store32_data(PCIMatch match, u8 *data, u32 offset, u32 val) {
 }
 
 // REVIEW: shouldn't return error value, use prohibitions
-int PCI::load32_data(PCIMatch match, u8 *data, u32 offset) {
+int PCI::load32_data(PCIType match, u8 *data, u32 offset) {
   switch (match) {
-  case PCIMatch::irq:
-  case PCIMatch::timers:
+  case PCIType::irq:
+  case PCIType::timers:
     return 0;
 
-  case PCIMatch::gpu:
+  case PCIType::gpu:
     switch(offset) {
     case 0:
       return gpu.read();
