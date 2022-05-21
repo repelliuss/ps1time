@@ -1,6 +1,5 @@
 #pragma once
 
-#include "bios.hpp"
 #include "range.hpp"
 #include "types.hpp"
 #include "heap_byte_data.hpp"
@@ -31,6 +30,12 @@ enum struct PCIType {
 };
 
 // TODO: may remove size constants
+
+struct Bios {
+  static constexpr u32 size = 524288;
+  static constexpr Range range = {0x1fc00000, 0x1fc80000};
+  u8 data[size];
+};
 
 // This is not our ram size, but a register that is being set in hw_regs area    
 struct RamSize {

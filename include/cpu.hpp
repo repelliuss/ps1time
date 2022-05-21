@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.hpp"
-#include "bios.hpp"
 #include "pci.hpp"
 #include "instruction.hpp"
 #include <utility>
