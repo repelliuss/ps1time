@@ -1,6 +1,7 @@
 #include "dma.hpp"
 #include "bits.hpp"
 #include "data.hpp"
+#include "log.hpp"
 
 #include <assert.h>
 
@@ -388,3 +389,41 @@ int DMA::try_transfer(ChannelView &chview) {
 
   return 0;
 }
+
+int DMA::load32(u32 &val, u32 index) {
+  switch (index) {
+  case DMA::reg::control:
+  case DMA::reg::interrupt:
+
+  case DMA::reg::mdecin_base_address:
+  case DMA::reg::mdecout_base_address:
+  case DMA::reg::gpu_base_address:
+  case DMA::reg::cdrom_base_address:
+  case DMA::reg::spu_base_address:
+  case DMA::reg::pio_base_address:
+  case DMA::reg::otc_base_address:
+
+  case DMA::reg::mdecin_block_control:
+  case DMA::reg::mdecout_block_control:
+  case DMA::reg::gpu_block_control:
+  case DMA::reg::cdrom_block_control:
+  case DMA::reg::spu_block_control:
+  case DMA::reg::pio_block_control:
+  case DMA::reg::otc_block_control:
+
+  case DMA::reg::mdecin_channel_control:
+  case DMA::reg::mdecout_channel_control:
+  case DMA::reg::gpu_channel_control:
+  case DMA::reg::cdrom_channel_control:
+  case DMA::reg::spu_channel_control:
+  case DMA::reg::pio_channel_control:
+  case DMA::reg::otc_channel_control:
+    
+    val = memory::load32(data, index);
+    return 0;
+  }
+
+  LOG_ERROR("[FN:%s IND:%d] Unhandled", "DMA::load32", index);
+  return -1;
+}
+

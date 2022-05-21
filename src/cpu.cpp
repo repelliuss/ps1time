@@ -552,96 +552,16 @@ int CPU::addi(const Instruction &i) {
 
 // NOTE: LW and LB didn't have cache_isolated check?
 
-// 0 okay, 1 ignored, negative error
-static int load32_prohibited(PCIType match, u32 offset, u32 addr) {
-  switch (match) {
-  case PCIType::bios:
-  case PCIType::ram:
-    return 0;
-
-  case PCIType::gpu:
-    switch (offset) {
-    case 0:
-    case 4:
-      return 0;
-    }
-    printf("Unhandled GPU read %d\n", offset);
-    return -1;
-
-    // may put info messages to .*_data fns
-  case PCIType::irq: // NOTE: requires specific value
-    printf("IRQ control read %x\n", offset);
-    return 0;
-
-  case PCIType::timers:
-    printf("Unhandled read from timer register %x\n", offset);
-    return 0;
-
-  case PCIType::dma:
-    switch (offset) {
-    case DMA::reg::control:
-    case DMA::reg::interrupt:
-
-    case DMA::reg::mdecin_base_address:
-    case DMA::reg::mdecout_base_address:
-    case DMA::reg::gpu_base_address:
-    case DMA::reg::cdrom_base_address:
-    case DMA::reg::spu_base_address:
-    case DMA::reg::pio_base_address:
-    case DMA::reg::otc_base_address:
-
-    case DMA::reg::mdecin_block_control:
-    case DMA::reg::mdecout_block_control:
-    case DMA::reg::gpu_block_control:
-    case DMA::reg::cdrom_block_control:
-    case DMA::reg::spu_block_control:
-    case DMA::reg::pio_block_control:
-    case DMA::reg::otc_block_control:
-
-    case DMA::reg::mdecin_channel_control:
-    case DMA::reg::mdecout_channel_control:
-    case DMA::reg::gpu_channel_control:
-    case DMA::reg::cdrom_channel_control:
-    case DMA::reg::spu_channel_control:
-    case DMA::reg::pio_channel_control:
-    case DMA::reg::otc_channel_control:
-      return 0;
-
-    default:
-      printf("Unhandled DMA read at %x\n", offset);
-      return -1;
-    }
-
-  default:
-    printf("unhandled load32 at address %08x\n", addr);
-    return -1;
-  }
-}
-
 int CPU::lw(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
 
   if (addr % 4 != 0) {
     return exception(Cause::unaligned_load_addr);
   }
 
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load32_prohibited(match, offset, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
   pending_load.reg_index = i.rt();
-  pending_load.val = pci.load32_data(match, data, offset);
 
-  return 0;
+  return pci.load32(pending_load.val, addr);
 }
 
 int CPU::sltu(const Instruction &i) {
@@ -1209,30 +1129,20 @@ int CPU::xori(const Instruction &i) {
 }
 
 int CPU::lwl(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
+  u32 aligned_addr = unaligned_addr & 0b00;
 
-  //bypass load delay restriction. instruction will merge new contents
+  // bypass load delay restriction. instruction will merge new contents
   // with the value currently being loaded if need be.
   u32 cur_val = out_regs[i.rt()];
   
-  u32 aligned_addr = unaligned_addr & 0b00;
-
-  PCIType match = pci.match(data, offset, aligned_addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load32_prohibited(match, offset, aligned_addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-  
-  u32 aligned_word = pci.load32_data(match, data, offset);
-
   pending_load.reg_index = i.rt();
+
+  u32 aligned_word;
+  int status = pci.load32(aligned_word, aligned_addr);
+  if (status < 0)
+    return status;
+
   switch (unaligned_addr & 0b11) {
   case 0:
     pending_load.val = (cur_val & 0x00ffffff) | (aligned_word << 24);
@@ -1253,30 +1163,20 @@ int CPU::lwl(const Instruction &i) {
 
 // TODO: duplicates code with lwl
 int CPU::lwr(const Instruction &i) {
-  u8 *data;
-  u32 offset;
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
+  u32 aligned_addr = unaligned_addr & 0b00;
 
   // bypass load delay restriction. instruction will merge new contents
   // with the value currently being loaded if need be.
   u32 cur_val = out_regs[i.rt()];
 
-  u32 aligned_addr = unaligned_addr & 0b00;
-
-  PCIType match = pci.match(data, offset, aligned_addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = load32_prohibited(match, offset, aligned_addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-  u32 aligned_word = pci.load32_data(match, data, offset);
-
   pending_load.reg_index = i.rt();
+
+  u32 aligned_word;
+  int status = pci.load32(aligned_word, aligned_addr);
+  if (status < 0)
+    return status;
+
   switch (unaligned_addr & 0b11) {
   case 0:
     pending_load.val = (cur_val & 0x00000000) | aligned_word;
@@ -1301,27 +1201,19 @@ int CPU::swl(const Instruction &i) {
     printf("Ignoring store while cache is isolated\n");
     return 0;
   }
-  
+
   u8 *data;
   u32 offset;
-  int status;
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
   u32 cur_reg_val = reg(i.rt());
   u32 aligned_addr = unaligned_addr & 0b00;
-  PCIType match = pci.match(data, offset, aligned_addr);
 
-  if (match == PCIType::none)
-    return -1;
-
-  status = load32_prohibited(match, offset, aligned_addr);
+  u32 cur_mem_val;
+  int status = pci.load32(cur_mem_val, aligned_addr);
   if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
+    return status;
 
-  u32 cur_mem_val = pci.load32_data(match, data, offset);
   u32 new_mem_val;
-
   switch (unaligned_addr & 0b11) {
   case 0:
     new_mem_val = (cur_mem_val & 0xffffff00) | (cur_reg_val >> 24);
@@ -1337,7 +1229,7 @@ int CPU::swl(const Instruction &i) {
     break;
   }
 
-  match = pci.match(data, offset, unaligned_addr);
+  PCIType match = pci.match(data, offset, unaligned_addr);
   if (match == PCIType::none)
     return -1;
 
@@ -1356,27 +1248,19 @@ int CPU::swr(const Instruction &i) {
     printf("Ignoring store while cache is isolated\n");
     return 0;
   }
-  
+
   u8 *data;
   u32 offset;
-  int status;
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
   u32 cur_reg_val = reg(i.rt());
   u32 aligned_addr = unaligned_addr & 0b00;
-  PCIType match = pci.match(data, offset, aligned_addr);
 
-  if (match == PCIType::none)
-    return -1;
-
-  status = load32_prohibited(match, offset, aligned_addr);
+  u32 cur_mem_val;
+  int status = pci.load32(cur_mem_val, aligned_addr);
   if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-  u32 cur_mem_val = pci.load32_data(match, data, offset);
+    return status;
+  
   u32 new_mem_val;
-
   switch (unaligned_addr & 0b11) {
   case 0:
     new_mem_val = (cur_mem_val & 0x00000000) | cur_reg_val;
@@ -1392,7 +1276,7 @@ int CPU::swr(const Instruction &i) {
     break;
   }
 
-  match = pci.match(data, offset, unaligned_addr);
+  PCIType match = pci.match(data, offset, unaligned_addr);
   if (match == PCIType::none)
     return -1;
 

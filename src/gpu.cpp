@@ -1,5 +1,6 @@
 #include "gpu.hpp"
 #include "intrinsic.hpp"
+#include "log.hpp"
 
 #include <stdio.h>
 
@@ -450,7 +451,86 @@ int GPU::gp1(u32 val) {
   }
 }
 
+u32 GPU::status() {
+  u32 val = 0;
+
+  val |= static_cast<u32>(page_base_x) << 0;
+  val |= static_cast<u32>(page_base_y) << 4;
+  val |= static_cast<u32>(semi_transparency) << 5;
+  val |= static_cast<u32>(tex_depth) << 7;
+  val |= static_cast<u32>(dithering) << 9;
+  val |= static_cast<u32>(draw_to_display) << 10;
+  val |= static_cast<u32>(force_set_mask_bit) << 11;
+  val |= static_cast<u32>(preserve_masked_pixels) << 12;
+  val |= static_cast<u32>(field) << 13;
+
+  // REVIEW: bit 14 is not supported, see nocash
+
+  val |= static_cast<u32>(texture_disable) << 15;
+  val |= hres.into_status();
+
+  // HACK: need to emulate bit 13 or returning 1 here locks BIOS
+  // val |= static_cast<u32>(vres) << 19;
+
+  val |= static_cast<u32>(video_mode) << 20;
+  val |= static_cast<u32>(display_depth) << 21;
+  val |= static_cast<u32>(interlaced) << 22;
+  val |= static_cast<u32>(display_disabled) << 23;
+  val |= static_cast<u32>(interrupt) << 24;
+
+  // REVIEW: we pretend GPU is always ready
+
+  // NOTE: ready to receive command
+  val |= 1 << 26;
+  // NOTE: ready to send VRAM to CPU
+  val |= 1 << 27;
+  // NOTE: ready to receive dma block
+  val |= 1 << 28;
+
+  val |= static_cast<u32>(dma_direction) << 29;
+
+  // REVIEW: bit 31 should change depending on the currently drawn line
+  // (whether it's even, odd or in the vblack apparently). we don't bother
+  // with that right now
+  val |= 0 << 31;
+
+  u32 dma_request = 0;
+  // REVIEW: following nocash spec here
+  switch (dma_direction) {
+  case DMAdirection::off:
+    dma_request = 0;
+    break;
+  case DMAdirection::fifo:
+    dma_request = 1;
+    break;
+  case DMAdirection::cpu_to_gp0:
+    dma_request = bit(val, 28);
+    break;
+  case DMAdirection::vram_to_cpu:
+    dma_request = bit(val, 27);
+    break;
+  }
+
+  val |= dma_request << 25;
+
+  return val;
+}
+
 u32 GPU::read() {
   printf("GPUREAD\n");
   return 0;
+}
+
+int GPU::load32(u32 &val, u32 index) {
+  switch (index) {
+  case 0:
+    val = read();
+    return 0;
+  case 4:
+    val = status();
+    return 0;
+  }
+
+  LOG_ERROR("[FN:%s IND:%d] Unhandled", "GPU::load32", index);
+  return -1;
 }

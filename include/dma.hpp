@@ -108,4 +108,6 @@ struct DMA {
 
   //may only be called reg::.*_channel_control when written
   int try_transfer(ChannelView &channel);
+
+  int load32(u32 &val, u32 index);
 };

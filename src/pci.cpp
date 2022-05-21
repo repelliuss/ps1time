@@ -1,5 +1,6 @@
 #include "pci.hpp"
 #include "data.hpp"
+#include "log.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -163,24 +164,84 @@ int PCI::store32_data(PCIType match, u8 *data, u32 offset, u32 val) {
   return 0;
 }
 
-// REVIEW: shouldn't return error value, use prohibitions
-int PCI::load32_data(PCIType match, u8 *data, u32 offset) {
-  switch (match) {
-  case PCIType::irq:
-  case PCIType::timers:
-    return 0;
-
-  case PCIType::gpu:
-    switch(offset) {
-    case 0:
-      return gpu.read();
-    case 4:
-      return gpu.status();
-    }
-    assert(false);
-    return -1;
-
-  default:
-    return memory::load32(data, offset);
-  }
+template <typename LoadType>
+constexpr int ignore_load_with(LoadType &val, const char *fn, u32 addr,
+                               u32 index, const char *msg, LoadType with) {
+  LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, msg);
+  val = with;
+  return 0;
 }
+
+int PCI::load32(u32 &val, u32 addr) {
+  static const char *fn = "PCI::load32";
+  u32 index;
+  
+  addr = mask_addr_to_region(addr);
+
+  if (!Bios::range.offset(index, addr)) {
+    val = memory::load32(bios.data, index);
+    return 0;
+  }
+
+  if (!MemCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
+              addr, index, "MemCtrl");
+    return -1;
+  }
+
+  if (!RamSize::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
+              addr, index, "RamSize");
+    return -1;
+  }
+
+  if (!CacheCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
+              addr, index, "CacheCtrl");
+    return -1;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    val = memory::load32(ram.data, index);
+    return 0;
+  }
+
+  if (!SPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
+              addr, index, "SPU");
+    return -1;
+  }
+
+  if (!Expansion1::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
+              addr, index, "Expansion1");
+    return -1;
+  }
+
+  if (!Expansion2::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x IND:%d] %s", fn, addr,
+              addr, index, "Expansion2");
+    return -1;
+  }
+
+  if (!IRQ::range.offset(index, addr)) {
+    return ignore_load_with<u32>(val, fn, addr, index, "IRQ", 0);
+  }
+
+  if (!Timers::range.offset(index, addr)) {
+    return ignore_load_with<u32>(val, fn, addr, index, "Timers", 0);
+  }
+  {}
+  if (!DMA::range.offset(index, addr)) {
+    return dma.load32(val, index);
+  }
+
+  if (!GPU::range.offset(index, addr)) {
+    return gpu.load32(val, index);
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x MASKED_ADDR:0x%08x] Unhandled", fn, addr,
+            addr);
+  return -1;
+}
+
