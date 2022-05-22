@@ -520,11 +520,8 @@ int CPU::lb(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  // byte is sign extended, so we are being careful
-  u8 val;
-  int status = pci.load8(val, addr);
-  pending_load.val = static_cast<i8>(val);
-
+  int status = pci.load8(pending_load.val, addr);
+  pending_load.val = static_cast<i8>(pending_load.val);
   return status;
 }
 
@@ -597,11 +594,7 @@ int CPU::lbu(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  u8 val;
-  int status = pci.load8(val, addr);
-  pending_load.val = val;
-
-  return status;
+  return pci.load8(pending_load.val, addr);
 }
 
 int CPU::jalr(const Instruction &i) {
@@ -767,11 +760,7 @@ int CPU::lhu(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  u16 val;
-  int status = pci.load16(val, addr);
-  pending_load.val = val;
-
-  return status;
+  return pci.load16(pending_load.val, addr);
 }
 
 int CPU::sllv(const Instruction &i) {
@@ -789,10 +778,8 @@ int CPU::lh(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  u16 val;
-  int status = pci.load16(val, addr);
-  pending_load.val = static_cast<i16>(val);
-  
+  int status = pci.load16(pending_load.val, addr);
+  pending_load.val = static_cast<i16>(pending_load.val);
   return status;
 }
 

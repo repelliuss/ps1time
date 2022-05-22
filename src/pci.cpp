@@ -103,26 +103,25 @@ PCIType PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
   return PCIType::none;
 }
 
-template <typename LoadType>
-constexpr int ignore_load_with(LoadType &val, const char *fn, u32 addr,
-                               u32 index, const char *msg, LoadType with) {
+constexpr int ignore_load_with(u32 &val, const char *fn, u32 addr, u32 index,
+                               const char *msg, u32 with) {
   LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d] Ignored %s", fn, addr, index, msg);
   val = with;
   return 0;
 }
 
 template <typename StoreType>
-constexpr int ignore_store(StoreType val, const char *fn, u32 addr,
-			   u32 index, const char *msg) {
-  LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignored %s", fn, addr,
-            index, val, msg);
-  return 0; 
+constexpr int ignore_store(StoreType val, const char *fn, u32 addr, u32 index,
+                           const char *msg) {
+  LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignored %s", fn, addr, index,
+            val, msg);
+  return 0;
 }
 
 int PCI::load32(u32 &val, u32 addr) {
   static const char *fn = "PCI::load32";
   u32 index;
-  
+
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
@@ -166,11 +165,11 @@ int PCI::load32(u32 &val, u32 addr) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    return ignore_load_with<u32>(val, fn, addr, index, "IRQ", 0);
+    return ignore_load_with(val, fn, addr, index, "IRQ", 0);
   }
 
   if (!Timers::range.offset(index, addr)) {
-    return ignore_load_with<u32>(val, fn, addr, index, "Timers", 0);
+    return ignore_load_with(val, fn, addr, index, "Timers", 0);
   }
   {}
   if (!DMA::range.offset(index, addr)) {
@@ -185,10 +184,10 @@ int PCI::load32(u32 &val, u32 addr) {
   return -1;
 }
 
-int PCI::load16(u16 &val, u32 addr) {
+int PCI::load16(u32 &val, u32 addr) {
   static const char *fn = "PCI::load16";
   u32 index;
-  
+
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
@@ -217,7 +216,7 @@ int PCI::load16(u16 &val, u32 addr) {
   }
 
   if (!SPU::range.offset(index, addr)) {
-    return ignore_load_with<u16>(val, fn, addr, index, "SPU", 0);
+    return ignore_load_with(val, fn, addr, index, "SPU", 0);
   }
 
   if (!Expansion1::range.offset(index, addr)) {
@@ -231,7 +230,7 @@ int PCI::load16(u16 &val, u32 addr) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    return ignore_load_with<u16>(val, fn, addr, index, "IRQ", 0);
+    return ignore_load_with(val, fn, addr, index, "IRQ", 0);
   }
 
   if (!Timers::range.offset(index, addr)) {
@@ -253,7 +252,7 @@ int PCI::load16(u16 &val, u32 addr) {
   return -1;
 }
 
-int PCI::load8(u8 &val, u32 addr) {
+int PCI::load8(u32 &val, u32 addr) {
   static const char *fn = "PCI::load8";
   u32 index;
 
@@ -290,7 +289,7 @@ int PCI::load8(u8 &val, u32 addr) {
   }
 
   if (!Expansion1::range.offset(index, addr)) {
-    return ignore_load_with<u8>(val, fn, addr, index, "Expansion1", 0xff);
+    return ignore_load_with(val, fn, addr, index, "Expansion1", 0xff);
   }
 
   if (!Expansion2::range.offset(index, addr)) {
