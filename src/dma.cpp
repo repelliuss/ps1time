@@ -310,7 +310,7 @@ int transfer(const DMA &dma, DMA::ChannelView &chview) {
 
 } // namespace
 
-DMA::DMA(RAM &ram, GPU &gpu) : ram(ram), gpu(gpu) {
+DMA::DMA(RAM &ram, GPU &gpu) : HeapByteData(size, 0), ram(ram), gpu(gpu) {
   memory::store32(data, Reg::control, 0x07654321);
 }
 

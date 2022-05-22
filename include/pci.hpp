@@ -85,7 +85,12 @@ struct HWregs {
 struct CacheCtrl {
   static constexpr u32 size = 4;
   static constexpr Range range = {0xfffe0130, 0xfffe0134};
-  u8 data[size];
+  u32 val;
+
+  bool icache_enabled() { return (val & 0x800) != 0; }
+  
+  // NOTE: see L64360 and ATMizer™ Architecture Technical Manual, page 190
+  bool tag_test_mode() { return (val & 4) != 0; }
 };
 
 struct SPU : HeapByteData {

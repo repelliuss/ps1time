@@ -5,10 +5,9 @@
 #include "ram.hpp"
 #include "gpu.hpp"
 
-struct DMA {
+struct DMA : HeapByteData {
   static constexpr u32 size = 0x80;
   static constexpr Range range = {0x1f801080, 0x1f801100};
-  u8 data[size] = {0};
 
   struct Reg {
     /// register indexes

@@ -3,7 +3,7 @@
 #include "types.hpp"
 #include "pci.hpp"
 #include "instruction.hpp"
-#include <utility>
+#include "cache.hpp"
 
 struct COP0 {
   // REVIEW: setting all to 0 may not be accurate i.e. sr-$12. though sr is being set to mask ISOLATE_CACHE
@@ -51,15 +51,18 @@ struct CPU {
   static constexpr PendingLoad no_op_load = {0, 0};
   PendingLoad pending_load = no_op_load;
 
+  ICacheLine icache[256]; // 4KB i-cache
+
   CPU(const PCI &pci) = delete;
   PCI &operator=(const PCI &pci) = delete;
 
   CPU(PCI &pci) : pci(pci) {
     in_regs[0] = out_regs[0] = 0;
-    // TODO: remove deadbeefs
+    // TODO: remove this initializations
     for (int i = 1; i < 32; ++i) {
       out_regs[i] = in_regs[i] = 0xdeadbeef;
     }
+    memset(cop0.regs, 0, sizeof(u32) * 64);
   }
 
   void dump();
@@ -80,7 +83,12 @@ struct CPU {
   void set_reg(u32 index, u32 val);
   u32 reg(u32 index);
   bool cache_isolated();
+  int handle_cache(u32 val, u32 addr);
 
+  int store8(u8 val, u32 addr);
+  int store16(u16 val, u32 addr);
+  int store32(u32 val, u32 addr);
+  
   int lui(const Instruction& instruction);
   int ori(const Instruction& instruction);
   int sw(const Instruction& instruction);

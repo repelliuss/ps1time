@@ -258,7 +258,8 @@ int PCI::store32(u32 val, u32 addr) {
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "CacheCtrl");
+    cache_ctrl.val = val;
+    return 0;
   }
 
   if (!RAM::range.offset(index, addr)) {
@@ -278,6 +279,7 @@ int PCI::store32(u32 val, u32 addr) {
     return -1;
   }
 
+  // TODO: Rustation ignores store32 to expansion2
   if (!Expansion2::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
               "Expansion2");
@@ -457,3 +459,4 @@ int PCI::store8(u8 val, u32 addr) {
   LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
   return -1;
 }
+

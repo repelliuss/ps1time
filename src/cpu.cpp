@@ -55,7 +55,8 @@ int CPU::next() {
   }
   
   Instruction instruction;
-  int cpu_fetch_result = fetch(instruction.data, pc);
+  int cpu_fetch_result = fetch(instruction.data, cur_pc);
+  // REVIEW: instruction fetch may be said to be always succeed
   assert(cpu_fetch_result == 0);
 
   pc = next_pc;
@@ -86,7 +87,87 @@ int CPU::next() {
 }
 
 int CPU::fetch(u32 &instruction_data, u32 addr) {
-  return pci.load32(instruction_data, addr);
+  CacheCtrl &cc = pci.cache_ctrl;
+  bool is_kseg1 = (addr & 0xe0000000) == 0xa0000000;
+
+  if (is_kseg1 || !cc.icache_enabled()) {
+    return pci.load32(instruction_data, addr);
+  }
+
+  u32 tag = addr & 0xfffff000;
+  ICacheLine &line = icache[(addr >> 4) & 0xff];
+  u32 index = (addr >> 2) & 0b11;
+  int status = 0;
+
+  if (line.tag() != tag || line.first_valid_index() > index) {
+    // cache miss, fetch icache line
+    
+    line.update(addr);
+    for (int i = index; i < 4; ++i) {
+      // REVIEW: instruction fetch may be said to be always succeed
+      status |= pci.load32(line.instruction[i].data, addr);
+      addr += 4;
+    }
+  }
+
+  instruction_data = line.instruction[index].data;
+  return status;
+}
+
+int CPU::store8(u8 val, u32 addr) {
+  if (cache_isolated()) {
+    LOG_ERROR("[VAL:0x%08x] Unsupported write while cache is isolated", val);
+    return -1;
+  }
+
+  return pci.store8(val, addr);
+}
+
+int CPU::store16(u16 val, u32 addr) {
+  if (cache_isolated()) {
+    LOG_ERROR("[VAL:0x%08x] Unsupported write while cache is isolated", val);
+    return -1;
+  }
+
+  return pci.store16(val, addr);
+}
+
+int CPU::store32(u32 val, u32 addr) {
+  if (cache_isolated()) {
+    return handle_cache(val, addr);
+  }
+
+  return pci.store32(val, addr);
+}
+
+int CPU::handle_cache(u32 val, u32 addr) {
+  // Implementing full cache emulation requires handling many
+  // corner cases. For now I'm just going to add support for
+  // cache invalidation which is the only use case for cache
+  // isolation as far as I know.
+
+  CacheCtrl &cc = pci.cache_ctrl;
+
+  if (!cc.icache_enabled()) {
+    LOG_ERROR("Can't handle cache while instruction cache is disabled");
+    return -1;
+  }
+
+  if (val != 0) {
+    LOG_ERROR("[VAL:0x%08x] Unsupported write while cache is isolated", val);
+    return -1;
+  }
+
+  ICacheLine &line = icache[(addr >> 4) & 0xff];
+
+  if (cc.tag_test_mode()) {
+    line.invalidate();
+  } else {
+    u32 index = (addr >> 2) & 0b11;
+    line.instruction[index].data = val;
+  }
+
+  return 0;
 }
 
 int CPU::decode_execute_cop0(const Instruction &instruction) {
@@ -268,17 +349,8 @@ int CPU::decode_execute(const Instruction &instruction) {
   return exception(Cause::illegal_instruction);
 }
 
+// TODO: need to push/pop SR if nested exceptions are wanted
 int CPU::exception(const Cause &cause) {
-  u32 handler;
-
-  // NOTE: nocash says BEV=1 exception vectors doesn't happen
-  // Exception handler address depends on the 'BEV' bit
-  if ((cop0.regs[COP0::Reg::sr] & (1 << 22)) != 0) {
-    handler = 0xbfc00180;
-  } else {
-    handler = 0x80000080;
-  }
-
   // Shift bits [5:0] of `SR` two places to the left. Those bits
   // are three pairs of Interrupt Enable/User Mode bits behaving
   // like a stack 3 entries deep. Entering an exception pushes a
@@ -302,7 +374,13 @@ int CPU::exception(const Cause &cause) {
     cop0.regs[COP0::Reg::cause] |= 1 << 31;
   }
 
-  pc = handler;
+  // NOTE: nocash says BEV=1 exception vectors doesn't happen
+  // Exception handler address depends on the 'BEV' bit
+  if ((cop0.regs[COP0::Reg::sr] & (1 << 22)) != 0) {
+    pc = 0xbfc00180;
+  } else {
+    pc = 0x80000080;
+  }
   next_pc = pc + 4;
 
   return 0;
@@ -326,11 +404,6 @@ int CPU::ori(const Instruction &i) {
 }
 
 int CPU::sw(const Instruction &i) {
-  if (cache_isolated()) {
-    LOG_INFO("[FN:CPU::sw] Cache is isolated");
-    return 0;
-  }
-
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 val = reg(i.rt());
 
@@ -338,7 +411,7 @@ int CPU::sw(const Instruction &i) {
     return exception(Cause::unaligned_store_addr);
   }
 
-  return pci.store32(val, addr);
+  return store32(val, addr);
 }
 
 int CPU::sll(const Instruction &i) {
@@ -435,8 +508,6 @@ int CPU::addi(const Instruction &i) {
   return 0;
 }
 
-// NOTE: LW and LB didn't have cache_isolated check?
-
 int CPU::lw(const Instruction &i) {
   u32 addr = reg(i.rs()) + i.imm16_se();
 
@@ -460,11 +531,6 @@ int CPU::addu(const Instruction &i) {
 }
 
 int CPU::sh(const Instruction &i) {
-  if (cache_isolated()) {
-    LOG_INFO("[FN:CPU::sh] Cache is isolated");
-    return 0;
-  }
-
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 val = reg(i.rt());
 
@@ -472,7 +538,7 @@ int CPU::sh(const Instruction &i) {
     return exception(Cause::unaligned_store_addr);
   }
 
-  return pci.store16(val, addr);
+  return store16(val, addr);
 }
 
 int CPU::jal(const Instruction &i) {
@@ -488,15 +554,10 @@ int CPU::andi(const Instruction &i) {
 }
 
 int CPU::sb(const Instruction &i) {
-  if (cache_isolated()) {
-    LOG_INFO("[FN:CPU::sb] Cache is isolated");
-    return 0;
-  }
-
   u32 addr = reg(i.rs()) + i.imm16_se();
   u32 val = reg(i.rt());
 
-  return pci.store8(val, addr);
+  return store8(val, addr);
 }
 
 int CPU::jr(const Instruction &i) {
@@ -899,11 +960,6 @@ int CPU::lwr(const Instruction &i) {
 }
 
 int CPU::swl(const Instruction &i) {
-  if (cache_isolated()) {
-    LOG_INFO("[FN:CPU::swl] Cache is isolated");
-    return 0;
-  }
-
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
   u32 aligned_addr = unaligned_addr & 0b00;
   u32 cur_reg_val = reg(i.rt());
@@ -929,15 +985,10 @@ int CPU::swl(const Instruction &i) {
     break;
   }
 
-  return pci.store32(new_mem_val, unaligned_addr);
+  return store32(new_mem_val, unaligned_addr);
 }
 
 int CPU::swr(const Instruction &i) {
-  if (cache_isolated()) {
-    LOG_INFO("[FN:CPU::swr] Cache is isolated");
-    return 0;
-  }
-
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
   u32 aligned_addr = unaligned_addr & 0b00;
   u32 cur_reg_val = reg(i.rt());
@@ -962,8 +1013,8 @@ int CPU::swr(const Instruction &i) {
     new_mem_val = (cur_mem_val & 0x00ffffff) | (cur_reg_val << 24);
     break;
   }
-
-  return pci.store32(new_mem_val, unaligned_addr);
+  
+  return store32(new_mem_val, unaligned_addr);
 }
 
 int CPU::lwc0(const Instruction &i) {
@@ -999,3 +1050,4 @@ int CPU::swc2(const Instruction &i) {
 int CPU::swc3(const Instruction &i) {
   return exception(Cause::unimplemented_coprocessor);
 }
+
