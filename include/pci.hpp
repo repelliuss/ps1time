@@ -141,8 +141,6 @@ struct PCI {
 
   PCI() : dma(ram, gpu) {}
   
-  PCIType match(u8*& out_data, u32& offset, u32 addr);
-
   int load32(u32 &val, u32 addr);
   int load16(u32 &val, u32 addr);
   int load8(u32 &val, u32 addr);

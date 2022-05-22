@@ -87,16 +87,7 @@ int CPU::next() {
 }
 
 int CPU::fetch(u32 &instruction_data, u32 addr) {
-  u8 *data;
-  u32 offset;
-
-  if (pci.match(data, offset, addr) != PCIType::none) {
-    instruction_data = memory::load32(data, offset);
-    return 0;
-  }
-
-  // FIXME: negative value when unsigned return
-  return -1; // REVIEW: what to return? or exception here?
+  return pci.load32(instruction_data, addr);
 }
 
 int CPU::decode_execute_cop0(const Instruction &instruction) {
