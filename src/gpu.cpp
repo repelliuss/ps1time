@@ -326,7 +326,7 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   gpu.drawing_area_bottom = 0;
 
   gpu.renderer->set_drawing_offset(0, 0);
-  
+
   gpu.force_set_mask_bit = false;
   gpu.preserve_masked_pixels = false;
 
@@ -532,5 +532,17 @@ int GPU::load32(u32 &val, u32 index) {
   }
 
   LOG_ERROR("[FN:%s IND:%d] Unhandled", "GPU::load32", index);
+  return -1;
+}
+
+int GPU::store32(u32 val, u32 index) {
+  switch (index) {
+  case 0:
+    return gp0(val);
+  case 4:
+    return gp1(val);
+  }
+
+  assert(false);
   return -1;
 }

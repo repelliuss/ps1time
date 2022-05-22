@@ -110,4 +110,5 @@ struct DMA {
   int try_transfer(ChannelView &channel);
 
   int load32(u32 &val, u32 index);
+  int store32(u32 val, u32 index);
 };

@@ -7,6 +7,8 @@
 #include "ram.hpp"
 #include "gpu.hpp"
 
+#include "log.hpp"
+
 #include <cstdlib>
 #include <cstring>
 
@@ -51,6 +53,33 @@ struct MemCtrl {
   static constexpr u32 size = 36;
   static constexpr Range range = {0x1f801000, 0x1f801024};
   u8 data[size];
+
+  inline int store32(u32 val, u32 index) {
+    static constexpr const char *fn = "MemCtrl::store32";
+    
+    switch (index) {
+    case 0:
+      if (val != 0x1f000000) {
+        LOG_ERROR("[FN:%s IND:%d VAL:0x%08x] Bad expansion 1 value", fn, index,
+                  val);
+        return -1;
+      }
+
+      return 0;
+
+    case 4:
+      if (val != 0x1f802000) {
+        LOG_ERROR("[FN:%s IND:%d VAL:0x%08x] Bad expansion 2 value", fn, index,
+                  val);
+        return -1;
+      }
+
+      return 0;
+    }
+
+    LOG_DEBUG("[FN:%s IND:%d VAL:0x%08x] Ignored", fn, index, val);
+    return 0;
+  }
 };
 
 struct CacheCtrl {
@@ -98,7 +127,7 @@ struct Timers {
 // Peripheral Component Interconnect
 struct PCI {
   Bios bios;
-  MemCtrl hw_regs;
+  MemCtrl mem_ctrl;
   RamSize ram_size;
   CacheCtrl cache_ctrl;
   RAM ram;
@@ -113,9 +142,10 @@ struct PCI {
   PCI() : dma(ram, gpu) {}
   
   PCIType match(u8*& out_data, u32& offset, u32 addr);
-  int store32_data(PCIType match, u8 *data, u32 offset, u32 val);
 
   int load32(u32 &val, u32 addr);
   int load16(u16 &val, u32 addr);
   int load8(u8 &val, u32 addr);
+
+  int store32(u32 val, u32 addr);
 };

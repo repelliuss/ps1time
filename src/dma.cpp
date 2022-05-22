@@ -427,3 +427,34 @@ int DMA::load32(u32 &val, u32 index) {
   return -1;
 }
 
+int DMA::store32(u32 val, u32 index) {
+  switch (index) {
+  case DMA::reg::interrupt:
+    set_interrupt(val);
+    return 0;
+
+  case DMA::reg::mdecin_base_address:
+  case DMA::reg::mdecout_base_address:
+  case DMA::reg::gpu_base_address:
+  case DMA::reg::cdrom_base_address:
+  case DMA::reg::spu_base_address:
+  case DMA::reg::pio_base_address:
+  case DMA::reg::otc_base_address:
+    set_base_addr(index, val);
+    return 0;
+
+  case DMA::reg::mdecin_channel_control:
+  case DMA::reg::mdecout_channel_control:
+  case DMA::reg::gpu_channel_control:
+  case DMA::reg::cdrom_channel_control:
+  case DMA::reg::spu_channel_control:
+  case DMA::reg::pio_channel_control:
+  case DMA::reg::otc_channel_control:
+    memory::store32(data, val, index);
+    DMA::ChannelView channel = make_channel_view(index);
+    return try_transfer(channel);
+  }
+
+  memory::store32(data, val, index);
+  return 0;
+}

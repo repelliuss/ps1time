@@ -33,7 +33,7 @@ PCIType PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
 
   if (!MemCtrl::range.offset(offset, addr)) {
     log_pci("PCI::MemCtrl matched!\n");
-    out_data = hw_regs.data;
+    out_data = mem_ctrl.data;
     return PCIType::mem_ctrl;
   }
 
@@ -103,71 +103,10 @@ PCIType PCI::match(u8 *&out_data, u32 &offset, u32 addr) {
   return PCIType::none;
 }
 
-int PCI::store32_data(PCIType match, u8 *data, u32 offset, u32 val) {
-  switch (match) {
-  case PCIType::gpu:
-    switch (offset) {
-    case 0:
-      return gpu.gp0(val);
-    case 4:
-      return gpu.gp1(val);
-    }
-    assert(false);
-    return -1;
-
-
-    // TODO: logic here can be reduced with constraints to 0xZ0 where Z is
-    // [0,6]?
-  case PCIType::dma:
-    switch (offset) {
-    case DMA::reg::interrupt:
-      dma.set_interrupt(val);
-      break;
-
-    case DMA::reg::mdecin_base_address:
-    case DMA::reg::mdecout_base_address:
-    case DMA::reg::gpu_base_address:
-    case DMA::reg::cdrom_base_address:
-    case DMA::reg::spu_base_address:
-    case DMA::reg::pio_base_address:
-    case DMA::reg::otc_base_address:
-      dma.set_base_addr(offset, val);
-      break;
-
-    case DMA::reg::mdecin_channel_control:
-    case DMA::reg::mdecout_channel_control:
-    case DMA::reg::gpu_channel_control:
-    case DMA::reg::cdrom_channel_control:
-    case DMA::reg::spu_channel_control:
-    case DMA::reg::pio_channel_control:
-    case DMA::reg::otc_channel_control:
-      memory::store32(data, val, offset);
-      {
-        DMA::ChannelView channel = dma.make_channel_view(offset);
-        return dma.try_transfer(channel);
-      }
-
-      break;
-
-    default:
-      memory::store32(data, val, offset);
-      break;
-    }
-    break;
-
-
-  default:
-    memory::store32(data, val, offset);
-    break;
-  }
-
-  return 0;
-}
-
 template <typename LoadType>
 constexpr int ignore_load_with(LoadType &val, const char *fn, u32 addr,
                                u32 index, const char *msg, LoadType with) {
-  LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, msg);
+  LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d] Ignored %s", fn, addr, index, msg);
   val = with;
   return 0;
 }
@@ -375,4 +314,77 @@ int PCI::load8(u8 &val, u32 addr) {
   return -1;
 }
 
+int PCI::store32(u32 val, u32 addr) {
+  static const char *fn = "PCI::store32";
+  u32 index;
+  
+  addr = mask_addr_to_region(addr);
 
+  if (!Bios::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Bios");
+    return -1;
+  }
+
+  if (!MemCtrl::range.offset(index, addr)) {
+    return mem_ctrl.store32(val, index);
+  }
+
+  if (!RamSize::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "RamSize");
+    return 0;
+  }
+
+  if (!CacheCtrl::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "CacheCtrl");
+    return 0;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    memory::store32(ram.data, val, index);
+    return 0;
+  }
+
+  if (!SPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "SPU");
+    return -1;
+  }
+
+  if (!Expansion1::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Expansion1");
+    return -1;
+  }
+
+  if (!Expansion2::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Expansion2");
+    return -1;
+  }
+
+  if (!IRQ::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "IRQ");
+    return 0;
+  }
+
+  if (!Timers::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "Timers");
+    return 0;
+  }
+  
+  if (!DMA::range.offset(index, addr)) {
+    return dma.store32(val, index);
+  }
+
+  if (!GPU::range.offset(index, addr)) {
+    return gpu.store32(val, index);
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
+  return -1;
+}

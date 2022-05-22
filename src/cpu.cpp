@@ -336,126 +336,21 @@ void CPU::ori(const Instruction &i) {
   set_reg(i.rt(), reg(i.rs()) | i.imm16());
 }
 
-static int store32_prohibited(PCIType match, u32 offset, u32 val, u32 addr) {
-  switch (match) {
-  case PCIType::ram:
-    return 0;
-
-  case PCIType::gpu:
-    switch (offset) {
-    case 0:
-    case 4:
-      return 0;
-    }
-    fprintf(stderr, "GPU write %d: %08x\n", offset, val);
-    return -1;
-
-  case PCIType::irq:
-    printf("IRQ control: %x <- %08x\n", offset, val);
-    return 1;
-
-  case PCIType::cache_ctrl:
-    printf("Unhandled write to CACHE_CONTROL: %08x\n", val);
-    return 1;
-
-  case PCIType::dma:
-    switch (offset) {
-    case DMA::reg::control:
-    case DMA::reg::interrupt:
-      // channels
-    case DMA::reg::mdecin_base_address:
-    case DMA::reg::mdecout_base_address:
-    case DMA::reg::gpu_base_address:
-    case DMA::reg::cdrom_base_address:
-    case DMA::reg::spu_base_address:
-    case DMA::reg::pio_base_address:
-    case DMA::reg::otc_base_address:
-
-    case DMA::reg::mdecin_block_control:
-    case DMA::reg::mdecout_block_control:
-    case DMA::reg::gpu_block_control:
-    case DMA::reg::cdrom_block_control:
-    case DMA::reg::spu_block_control:
-    case DMA::reg::pio_block_control:
-    case DMA::reg::otc_block_control:
-
-    case DMA::reg::mdecin_channel_control:
-    case DMA::reg::mdecout_channel_control:
-    case DMA::reg::gpu_channel_control:
-    case DMA::reg::cdrom_channel_control:
-    case DMA::reg::spu_channel_control:
-    case DMA::reg::pio_channel_control:
-    case DMA::reg::otc_channel_control:
-      return 0;
-    }
-
-    printf("Unhandled DMA write %x: %08x\n", offset, val);
-    return -1;
-
-  case PCIType::timers:
-    printf("Unhandled write to timer register %x: %08x\n", offset, val);
-    return 1;
-
-  case PCIType::mem_ctrl:
-    switch (offset) {
-    case 0:
-      if (val != 0x1f000000) {
-        printf("Bad expansion 1 base address: 0x%08x\n", val);
-        return -1;
-      }
-
-      return 0;
-
-    case 4:
-      if (val != 0x1f802000) {
-        printf("Bad expansion 2 base address: 0x%08x\n", val);
-        return -1;
-      }
-
-      return 0;
-    }
-
-    printf("Unhandled write to MEM_CONTROL register %x: 0x%08x\n", offset, val);
-    return 1;
-
-  case PCIType::ram_size:
-    printf("Unhandled write to RAM_SIZE register %x <- %08x\n", offset, val);
-    return 1;
-
-  default:
-    printf("unhandled store32 into address %08x\n", addr);
-    return -1;
-  }
-}
-
 // TODO: change offset to index as data is separated
 int CPU::sw(const Instruction &i) {
   if (cache_isolated()) {
-    printf("Ignoring store while cache is isolated\n");
+    LOG_INFO("[FN:CPU::sw] Cache is isolated");
     return 0;
   }
 
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
-  u32 value = reg(i.rt());
+  u32 val = reg(i.rt());
 
   if (addr % 4 != 0) {
     return exception(Cause::unaligned_store_addr);
   }
 
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = store32_prohibited(match, offset, value, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-  return pci.store32_data(match, data, offset, value);
+  return pci.store32(val, addr);
 }
 
 void CPU::sll(const Instruction &i) {
@@ -1101,17 +996,14 @@ int CPU::lwr(const Instruction &i) {
 }
 
 int CPU::swl(const Instruction &i) {
-  // TODO: duplicate
   if (cache_isolated()) {
-    printf("Ignoring store while cache is isolated\n");
+    LOG_INFO("[FN:CPU::swl] Cache is isolated");
     return 0;
   }
 
-  u8 *data;
-  u32 offset;
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
-  u32 cur_reg_val = reg(i.rt());
   u32 aligned_addr = unaligned_addr & 0b00;
+  u32 cur_reg_val = reg(i.rt());
 
   u32 cur_mem_val;
   int status = pci.load32(cur_mem_val, aligned_addr);
@@ -1134,31 +1026,19 @@ int CPU::swl(const Instruction &i) {
     break;
   }
 
-  PCIType match = pci.match(data, offset, unaligned_addr);
-  if (match == PCIType::none)
-    return -1;
-
-  status = store32_prohibited(match, offset, new_mem_val, unaligned_addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-  return pci.store32_data(match, data, offset, new_mem_val);
+  return pci.store32(new_mem_val, unaligned_addr);
 }
 
 int CPU::swr(const Instruction &i) {
   // TODO: duplicate
   if (cache_isolated()) {
-    printf("Ignoring store while cache is isolated\n");
+    LOG_INFO("[FN:CPU::swr] Cache is isolated");
     return 0;
   }
 
-  u8 *data;
-  u32 offset;
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
-  u32 cur_reg_val = reg(i.rt());
   u32 aligned_addr = unaligned_addr & 0b00;
+  u32 cur_reg_val = reg(i.rt());
 
   u32 cur_mem_val;
   int status = pci.load32(cur_mem_val, aligned_addr);
@@ -1181,18 +1061,7 @@ int CPU::swr(const Instruction &i) {
     break;
   }
 
-  PCIType match = pci.match(data, offset, unaligned_addr);
-  if (match == PCIType::none)
-    return -1;
-
-  status = store32_prohibited(match, offset, new_mem_val, unaligned_addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-
-  return pci.store32_data(match, data, offset, new_mem_val);
+  return pci.store32(new_mem_val, unaligned_addr);
 }
 
 int CPU::lwc0(const Instruction &i) {

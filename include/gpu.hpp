@@ -196,4 +196,5 @@ struct GPU {
   int gp1(u32 val);
 
   int load32(u32 &val, u32 index);
+  int store32(u32 val, u32 index);
 };
