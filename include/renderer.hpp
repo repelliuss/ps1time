@@ -2,16 +2,10 @@
 
 #include "intrinsic.hpp"
 
-// TODO: handle this defines
 #include <SDL.h>
 
-// TODO: port to windows
-// struct GL {
-//   // TODO: should USE APIENTRY for pointers for Windows
-//   typedef void (*ActiveTextureARB)(unsigned int);
-
-//   static ActiveTextureARB active_texture_arb;
-// };
+// TODO: port OpenGL functions for Windows with APIENTRY, see SDL2 for OpenGL
+// context
 
 struct Renderer {
   Renderer(bool debug = false);
@@ -52,4 +46,3 @@ struct Renderer {
   Buffer<Position> buf_pos;
   Buffer<Color> buf_color;
 };
-

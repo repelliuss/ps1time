@@ -1,7 +1,7 @@
 #include "renderer.hpp"
 #include "data.hpp"
 #include "intrinsic.hpp"
-#include <GL/glext.h>
+#include "log.hpp"
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
@@ -24,7 +24,7 @@ static const char *gl_debug_severity(GLenum severity) {
     return "Notification";
   }
 
-  printf("val: %x\n", severity);
+  LOG_CRITICAL("Severity: 0x%x", severity);
 
   assert(false);
   return "";
@@ -46,7 +46,7 @@ static const char *gl_debug_source(GLenum source) {
     return "Other";
   }
 
-  printf("val: %x\n", source);
+  LOG_CRITICAL("Source: 0x%x", source);
 
   assert(false);
   return "";
@@ -74,7 +74,7 @@ static const char *gl_debug_type(GLenum type) {
     return "Other";
   }
 
-  printf("val: %x\n", type);
+  LOG_CRITICAL("Type: 0x%x", type);
 
   assert(false);
   return "";
@@ -99,12 +99,12 @@ static int check_gl_errors() {
   while (count != 0) {
 
     // clang-format off
-    printf("OpenGL [%s|%s|%s|0x%x] %s\n",
-	   gl_debug_severity(severity),
-	   gl_debug_source(source),
-	   gl_debug_type(type),
-	   id,
-	   msg_data);
+    LOG_ERROR("OpenGL [%s|%s|%s|0x%x] %s",
+	      gl_debug_severity(severity),
+	      gl_debug_source(source),
+	      gl_debug_type(type),
+	      id,
+	      msg_data);
     // clang-format on
 
     if (severity == GL_DEBUG_SEVERITY_HIGH ||
@@ -119,7 +119,7 @@ static int check_gl_errors() {
   free(msg_data);
 
   if (fatal) {
-    printf("Fatal OpenGL error\n");
+    LOG_ERROR("Fatal OpenGL error");
     return -1;
   }
 
@@ -152,13 +152,13 @@ int Renderer::create_window_and_context() {
   // clang-format on
 
   if (window == NULL) {
-    printf("SDL err: %s\n", SDL_GetError());
+    LOG_ERROR("SDL: %s", SDL_GetError());
     return -1;
   }
 
   gl_context = SDL_GL_CreateContext(window);
   if (gl_context == NULL) {
-    printf("SDL err: %s\n", SDL_GetError());
+    LOG_ERROR("SDL: %s", SDL_GetError());
     return -1;
   }
 
@@ -185,7 +185,7 @@ static int compile_shader(GLuint &s, const GLchar *code, GLenum type) {
   glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
   if (status != GL_TRUE) {
     glDeleteShader(shader);
-    printf("Shader compilation failed!\n");
+    LOG_ERROR("Shader compilation failed");
     return -1;
   }
 
@@ -198,7 +198,7 @@ static int read_then_compile_shader(GLuint &s, GLenum type, const char *path) {
   char *code;
   int status = 0;
 
-  status = read_whole_file(&code, path);
+  status = file::read_whole_file(&code, path);
   if (status < 0)
     return status;
 
@@ -250,7 +250,7 @@ int Renderer::compile_shaders_link_program() {
   status = GL_FALSE;
   glGetProgramiv(program, GL_LINK_STATUS, &status);
   if(status != GL_TRUE) {
-    printf("OpenGL program linking failed!\n");
+    LOG_ERROR("OpenGL program linking failed");
     glDeleteProgram(program);
     clean_shaders(*this);
     return -1;
@@ -268,7 +268,7 @@ static GLuint find_program_attrib(GLuint program, const char *attr) {
   GLuint attr_index = glGetAttribLocation(program, attr);
 
   if(attr_index < 0) {
-    printf("Attribute '%s' not found in program", attr);
+    LOG_ERROR("Attribute '%s' not found in program", attr);
   }
 
   return attr_index;
@@ -278,7 +278,7 @@ static GLuint find_program_uniform(GLuint program, const char *uni) {
   GLuint index = glGetUniformLocation(program, uni);
 
   if(index < 0) {
-    printf("Uniform '%s' not found in program", uni);
+    LOG_ERROR("Uniform '%s' not found in program", uni);
   }
 
   return index;
@@ -363,7 +363,7 @@ int Renderer::display() {
 
 int Renderer::put_triangle(const Position positions[3], const Color colors[3]) {
   if (count_vertices + 3 >= MAX_VERTEX_BUFFER_LEN) {
-    printf("Vertex attribute buffers full, forcing_draw\n");
+    LOG_WARN("Vertex attribute buffers full, forcing_draw");
     int status = draw();
     if (status < 0) {
       return status;
@@ -381,7 +381,7 @@ int Renderer::put_triangle(const Position positions[3], const Color colors[3]) {
 
 int Renderer::put_quad(const Position positions[4], const Color colors[4]) {
   if (count_vertices + 6 >= MAX_VERTEX_BUFFER_LEN) {
-    printf("Vertex attribute buffers full, forcing_draw\n");
+    LOG_WARN("Vertex attribute buffers full, forcing_draw");
     int status = draw();
     if (status < 0) {
       return status;
@@ -404,7 +404,9 @@ int Renderer::put_quad(const Position positions[4], const Color colors[4]) {
 }
 
 int Renderer::set_drawing_offset(GLint x, GLint y) {
-  // REVIEW: can optimize here by handling vertex buffer properly
+  // REVIEW: can optimize here by handling vertex buffer properly. Problem here
+  // we change the offset but already issued vertices need to drawed with
+  // previous offset
   draw();			// render current drawings before changing offset
   glUniform2i(offset_program_index, x, y);
   return 0;

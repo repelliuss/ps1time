@@ -47,9 +47,8 @@ bool transfer_active(const DMA::ChannelView &chview) {
   return transfer_enabled(chview);
 }
 
-// TODO: this function should not need to be called for linked list mode
+// NOTE: this function should not need to be called for linked list mode
 // linked list traverse ends with a specific header value 0xffffff
-
 int transfer_size(u32 &size, const DMA::ChannelView &chview) {
   switch (sync_mode(chview)) {
   case DMA::ChannelView::SyncMode::manual:
@@ -71,13 +70,12 @@ void finalize_transfer(DMA::ChannelView &chview) {
   bit_clear(chview.channel_control, 24);
   bit_clear(chview.channel_control, 28);
 
-  // TODO: Need to set the correct value here for other fields, particularly
+  // TODO: Need to set the more values here for other fields, particularly
   // interrupts (according to simias)
 }
 
 void sync(const DMA::ChannelView &chview) {
-  memcpy(chview.channel_control_addr, &chview.channel_control,
-         sizeof(chview.channel_control));
+  memory::store32(chview.channel_control_addr, 0, chview.channel_control);
 }
 
 // NOTE: same as transfer_block_size() but used in SyncMode::manual
@@ -129,7 +127,7 @@ transfer_value_generator get_generator(DMA::ChannelView::Type type) {
   case DMA::ChannelView::Type::OTC:
     return get_otc_channel_transfer_value;
   default:
-    printf("Unhandled DMA source port %d\n", type);
+    LOG_ERROR("Unhandled DMA source port %d", type);
     return nullptr;
   }
 }
@@ -149,7 +147,7 @@ get_generator_see_note_about_transfer_manual(DMA::ChannelView::Type type) {
   case DMA::ChannelView::Type::OTC:
     return get_otc_channel_transfer_value_see_note_about_transfer_manual;
   default:
-    printf("Unhandled DMA source port %d\n", type);
+    LOG_ERROR("Unhandled DMA source port %d", type);
     return nullptr;
   }
 }
@@ -178,13 +176,13 @@ int transfer_manual(const DMA &dma, DMA::ChannelView &chview) {
     return -1;
 
   if (chview::direction_from_ram(chview)) {
-    printf("Unhandled DMA direction\n");
+    LOG_ERROR("Unhandled DMA direction");
     return -1;
   } else {
 
     for (u32 i = word_count; i > 0; --i) {
       u32 value = generator(i, cur_addr);
-      memcpy(dma.ram.data + cur_addr, &value, sizeof(value));
+      memory::store32(dma.ram.data, cur_addr, value);
       cur_addr += step;
     }
   }
@@ -197,12 +195,12 @@ int transfer_manual(const DMA &dma, DMA::ChannelView &chview) {
 int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
 
   if(!chview::direction_from_ram(chview)) {
-    fprintf(stderr, "Invalid DMA direction for linked list mode");
+    LOG_ERROR("Invalid DMA direction for linked list mode");
     return -1;
   }
 
   if (chview.type != DMA::ChannelView::Type::GPU) {
-    fprintf(stderr, "Attempted linked list DMA on port %d", chview.type);
+    LOG_ERROR("Attempted linked list DMA on port %d", chview.type);
     return -1;
   }
 
@@ -215,7 +213,7 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
     u32 remaining_size = header >> 24;
 
     if(remaining_size > 0) {
-      printf("linked list packet size: %d\n", remaining_size);
+      LOG_INFO("LinkedList transfer, block size: %d", remaining_size);
     }
 
     while (remaining_size > 0) {
@@ -239,7 +237,7 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
     // maybe hardware does the same gotta check
   } while ((header & 0x800000) == 0);
 
-  printf("End of table\n");
+  LOG_INFO("LinkedList transfer end");
 
   chview::finalize_transfer(chview);
 
@@ -253,7 +251,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
   u32 remaining_size;
 
   if (chview::transfer_size(remaining_size, chview) < 0) {
-    printf("Couldn't figure out DMA block transfer size\n");
+    LOG_ERROR("Couldn't figure out DMA block transfer size");
     return -1;
   }
 
@@ -269,7 +267,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
         dma.gpu.gp0(src_word);
         break;
       default:
-        fprintf(stderr, "Unhandled DMA destination port %d\n", chview.type);
+        LOG_ERROR("Unhandled DMA destination port %d", chview.type);
       }
 
       cur_addr += increment;
@@ -287,7 +285,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
       u32 src_word = generator(remaining_size, aligned_addr);
 
       // load 32bit directly
-      memcpy(dma.ram.data + aligned_addr, &src_word, sizeof(src_word));
+      memory::store32(dma.ram.data, aligned_addr, src_word);
 
       cur_addr += increment;
       --remaining_size;
@@ -313,12 +311,11 @@ int transfer(const DMA &dma, DMA::ChannelView &chview) {
 } // namespace
 
 DMA::DMA(RAM &ram, GPU &gpu) : ram(ram), gpu(gpu) {
-  // REVIEW: maybe introduce own store&load for each peripheral fns?
-  memory::store32(data, 0x07654321, reg::control);
+  memory::store32(data, Reg::control, 0x07654321);
 }
 
 // is an interrupt active?
-bool DMA::irq_active() { return bit(data[reg::interrupt], 31); }
+bool DMA::irq_active() { return bit(data[Reg::interrupt], 31); }
 
 // logic for 31th bit in dma interrupt register
 static u8 extract_irq_active(u32 interrupt) {
@@ -338,18 +335,18 @@ static u8 extract_irq_active(u32 interrupt) {
 void DMA::set_interrupt(u32 val) {
   u8 irq = extract_irq_active(val);
   u8 channels_interrupt_ack_status =
-      bits_in_range(data[reg::interrupt], 24, 30);
+      bits_in_range(data[Reg::interrupt], 24, 30);
   u8 new_channels_interrupt_ack_status = bits_in_range(val, 24, 30);
 
   // writing 1 to ack flags resets it
   channels_interrupt_ack_status &= ~new_channels_interrupt_ack_status;
-  
-  printf("DMA IRQ en: %s %08x\n", bit(val, 23) != 0 ? "true" : "false", val);
+
+  LOG_INFO("DMA IRQ en: %s 0x%x", bit(val, 23) != 0 ? "true" : "false", val);
 
   u8 last_byte = (irq << 7) | channels_interrupt_ack_status;
   bits_copy_to_range(val, 24, 31, last_byte);
 
-  memcpy(data+reg::interrupt, &val, sizeof(val));
+  memory::store32(data, Reg::interrupt, val);
 }
 
 // TODO: may be needless as addr is already being masked each iteration
@@ -360,12 +357,11 @@ void DMA::set_base_addr(u32 base_addr_reg_index, u32 val) {
 
   // only 16MB are addressable by DMA, so cut redundant MSBs
   val &= 0xffffff;
-  memcpy(data+base_addr_reg_index, &val, sizeof(val));
+  memory::store32(data, base_addr_reg_index, val);
 }
 
 DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
   assert(dma_reg_index >= 0x00 && dma_reg_index < 0x6a);
-  // TODO: check if this is safe and faster than conditionals (all expected)
   u32 entry_address = mask_reg_index_to_chview_type_val(dma_reg_index);
 
   return {
@@ -378,8 +374,6 @@ DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
   };
 }
 
-// REVIEW: may make input channel const, it is not const because of
-// finalize_transfer, pros: reusable channel object cons: safety?
 int DMA::try_transfer(ChannelView &chview) {
   if (chview::transfer_active(chview)) {
     int status = transfer(*this, chview);
@@ -392,33 +386,32 @@ int DMA::try_transfer(ChannelView &chview) {
 
 int DMA::load32(u32 &val, u32 index) {
   switch (index) {
-  case DMA::reg::control:
-  case DMA::reg::interrupt:
+  case DMA::Reg::control:
+  case DMA::Reg::interrupt:
 
-  case DMA::reg::mdecin_base_address:
-  case DMA::reg::mdecout_base_address:
-  case DMA::reg::gpu_base_address:
-  case DMA::reg::cdrom_base_address:
-  case DMA::reg::spu_base_address:
-  case DMA::reg::pio_base_address:
-  case DMA::reg::otc_base_address:
+  case DMA::Reg::mdecin_base_address:
+  case DMA::Reg::mdecout_base_address:
+  case DMA::Reg::gpu_base_address:
+  case DMA::Reg::cdrom_base_address:
+  case DMA::Reg::spu_base_address:
+  case DMA::Reg::pio_base_address:
+  case DMA::Reg::otc_base_address:
 
-  case DMA::reg::mdecin_block_control:
-  case DMA::reg::mdecout_block_control:
-  case DMA::reg::gpu_block_control:
-  case DMA::reg::cdrom_block_control:
-  case DMA::reg::spu_block_control:
-  case DMA::reg::pio_block_control:
-  case DMA::reg::otc_block_control:
+  case DMA::Reg::mdecin_block_control:
+  case DMA::Reg::mdecout_block_control:
+  case DMA::Reg::gpu_block_control:
+  case DMA::Reg::cdrom_block_control:
+  case DMA::Reg::spu_block_control:
+  case DMA::Reg::pio_block_control:
+  case DMA::Reg::otc_block_control:
 
-  case DMA::reg::mdecin_channel_control:
-  case DMA::reg::mdecout_channel_control:
-  case DMA::reg::gpu_channel_control:
-  case DMA::reg::cdrom_channel_control:
-  case DMA::reg::spu_channel_control:
-  case DMA::reg::pio_channel_control:
-  case DMA::reg::otc_channel_control:
-    
+  case DMA::Reg::mdecin_channel_control:
+  case DMA::Reg::mdecout_channel_control:
+  case DMA::Reg::gpu_channel_control:
+  case DMA::Reg::cdrom_channel_control:
+  case DMA::Reg::spu_channel_control:
+  case DMA::Reg::pio_channel_control:
+  case DMA::Reg::otc_channel_control:
     val = memory::load32(data, index);
     return 0;
   }
@@ -429,32 +422,32 @@ int DMA::load32(u32 &val, u32 index) {
 
 int DMA::store32(u32 val, u32 index) {
   switch (index) {
-  case DMA::reg::interrupt:
+  case DMA::Reg::interrupt:
     set_interrupt(val);
     return 0;
 
-  case DMA::reg::mdecin_base_address:
-  case DMA::reg::mdecout_base_address:
-  case DMA::reg::gpu_base_address:
-  case DMA::reg::cdrom_base_address:
-  case DMA::reg::spu_base_address:
-  case DMA::reg::pio_base_address:
-  case DMA::reg::otc_base_address:
+  case DMA::Reg::mdecin_base_address:
+  case DMA::Reg::mdecout_base_address:
+  case DMA::Reg::gpu_base_address:
+  case DMA::Reg::cdrom_base_address:
+  case DMA::Reg::spu_base_address:
+  case DMA::Reg::pio_base_address:
+  case DMA::Reg::otc_base_address:
     set_base_addr(index, val);
     return 0;
 
-  case DMA::reg::mdecin_channel_control:
-  case DMA::reg::mdecout_channel_control:
-  case DMA::reg::gpu_channel_control:
-  case DMA::reg::cdrom_channel_control:
-  case DMA::reg::spu_channel_control:
-  case DMA::reg::pio_channel_control:
-  case DMA::reg::otc_channel_control:
-    memory::store32(data, val, index);
+  case DMA::Reg::mdecin_channel_control:
+  case DMA::Reg::mdecout_channel_control:
+  case DMA::Reg::gpu_channel_control:
+  case DMA::Reg::cdrom_channel_control:
+  case DMA::Reg::spu_channel_control:
+  case DMA::Reg::pio_channel_control:
+  case DMA::Reg::otc_channel_control:
+    memory::store32(data, index, val);
     DMA::ChannelView channel = make_channel_view(index);
     return try_transfer(channel);
   }
 
-  memory::store32(data, val, index);
+  memory::store32(data, index, val);
   return 0;
 }

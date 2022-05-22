@@ -1,12 +1,16 @@
 #include "data.hpp"
+#include "log.hpp"
 
 #include <filesystem>
 #include <cassert>
 
+// TODO: can just use memcpy here, values are little endian anyway iff passed an
+// internal PS1 value, just be careful that these functions are only called on
+// PS1 memory structures
+
 namespace memory {
 // little endian
 u32 load32(u8 *data, u32 index) {
-  // REVIEW: may require casts to u32
   u32 b0 = data[index];
   u32 b1 = data[index + 1];
   u32 b2 = data[index + 2];
@@ -24,39 +28,37 @@ u16 load16(u8 *data, u32 index) {
 
 u8 load8(u8 *data, u32 index) { return data[index]; }
 
-void store32(u8 *data, u32 value, u32 index) {
-  // REVIEW: is & required here?
-  // REVIEW: may require casts to u8
-  data[index] = value & 0xff;
-  data[index + 1] = (value >> 8) & 0xff;
-  data[index + 2] = (value >> 16) & 0xff;
-  data[index + 3] = value >> 24;
+void store32(u8 *data, u32 index, u32 val) {
+  data[index] = val & 0xff;
+  data[index + 1] = (val >> 8) & 0xff;
+  data[index + 2] = (val >> 16) & 0xff;
+  data[index + 3] = val >> 24;
 }
 
-void store16(u8 *data, u16 value, u32 index) {
-  data[index] = value & 0xff;
-  data[index + 1] = value >> 8;
+void store16(u8 *data, u32 index, u16 val) {
+  data[index] = val & 0xff;
+  data[index + 1] = val >> 8;
 }
 
-void store8(u8 *data, u8 value, u32 index) { data[index] = value; }
+void store8(u8 *data, u32 index, u8 val) { data[index] = val; }
 
 } // namespace memory
 
+namespace file {
 int read_file(u8 *out, const std::filesystem::path path, const u32 size) {
   int status = 0;
-  FILE* fp = std::fopen(path.c_str(), "r");
-  
+  FILE *fp = std::fopen(path.c_str(), "r");
+
   if (!fp) {
-    printf("Unable to open BIOS image file '%s'.\n", path.c_str());
+    LOG_ERROR("Unable to open BIOS image file '%s'", path.c_str());
     status = -1;
-  }
-  else if(std::fread(out, 1, size, fp) != size) {
-    printf("Failed to read BIOS image.\n");
+  } else if (std::fread(out, 1, size, fp) != size) {
+    LOG_ERROR("Failed to read BIOS image");
     status = -1;
   }
 
   std::fclose(fp);
-  
+
   return status;
 }
 
@@ -64,16 +66,16 @@ int read_file(char *out, const std::filesystem::path path, const u32 size) {
   int status = 0;
 
   if (out == nullptr) {
-    printf("Unable to read file, out is null");
+    LOG_ERROR("Unable to read file, out is null");
     return -1;
   }
 
   FILE *fp = std::fopen(path.c_str(), "r");
   if (!fp) {
-    printf("Unable to open BIOS image file '%s'.\n", path.c_str());
+    LOG_ERROR("Unable to open BIOS image file '%s'", path.c_str());
     status = -1;
   } else if (std::fread(out, 1, size, fp) != size) {
-    printf("Failed to read BIOS image.\n");
+    LOG_ERROR("Failed to read BIOS image");
     status = -1;
   }
 
@@ -86,8 +88,8 @@ int file_size(u32 &size, std::filesystem::path path) {
   std::error_code ec;
   size = std::filesystem::file_size(path, ec);
   if (ec) {
-    fprintf(stderr, "Failed to read file size of file %s : %s\n", path.c_str(),
-            ec.message().c_str());
+    LOG_ERROR("Failed to read file size of file '%s': %s", path.c_str(),
+              ec.message().c_str());
     return -1;
   }
 
@@ -114,3 +116,4 @@ int read_whole_file(char **str, const std::filesystem::path path) {
 
   return 0;
 }
+} // namespace file

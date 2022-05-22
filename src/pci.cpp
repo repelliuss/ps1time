@@ -45,8 +45,8 @@ int PCI::load32(u32 &val, u32 addr) {
     return 0;
   }
 
-  if (!MemCtrl::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "MemCtrl");
+  if (!HWregs::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "HWregs");
     return -1;
   }
 
@@ -87,7 +87,7 @@ int PCI::load32(u32 &val, u32 addr) {
   if (!Timers::range.offset(index, addr)) {
     return ignore_load_with(val, fn, addr, index, "Timers", 0);
   }
-  {}
+  
   if (!DMA::range.offset(index, addr)) {
     return dma.load32(val, index);
   }
@@ -111,8 +111,8 @@ int PCI::load16(u32 &val, u32 addr) {
     return -1;
   }
 
-  if (!MemCtrl::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "MemCtrl");
+  if (!HWregs::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "HWregs");
     return -1;
   }
 
@@ -179,8 +179,8 @@ int PCI::load8(u32 &val, u32 addr) {
     return 0;
   }
 
-  if (!MemCtrl::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "MemCtrl");
+  if (!HWregs::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "HWregs");
     return -1;
   }
 
@@ -249,8 +249,8 @@ int PCI::store32(u32 val, u32 addr) {
     return -1;
   }
 
-  if (!MemCtrl::range.offset(index, addr)) {
-    return mem_ctrl.store32(val, index);
+  if (!HWregs::range.offset(index, addr)) {
+    return hw_regs.store32(val, index);
   }
 
   if (!RamSize::range.offset(index, addr)) {
@@ -262,7 +262,7 @@ int PCI::store32(u32 val, u32 addr) {
   }
 
   if (!RAM::range.offset(index, addr)) {
-    memory::store32(ram.data, val, index);
+    memory::store32(ram.data, index, val);
     return 0;
   }
 
@@ -316,9 +316,9 @@ int PCI::store16(u16 val, u32 addr) {
     return -1;
   }
 
-  if (!MemCtrl::range.offset(index, addr)) {
+  if (!HWregs::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
-              "MemCtrl");
+              "HWregs");
     return -1;
   }
 
@@ -335,7 +335,7 @@ int PCI::store16(u16 val, u32 addr) {
   }
 
   if (!RAM::range.offset(index, addr)) {
-    memory::store16(ram.data, val, index);
+    memory::store16(ram.data, index, val);
     return 0;
   }
 
@@ -391,9 +391,9 @@ int PCI::store8(u8 val, u32 addr) {
     return -1;
   }
 
-  if (!MemCtrl::range.offset(index, addr)) {
+  if (!HWregs::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
-              "MemCtrl");
+              "HWregs");
     return -1;
   }
 
@@ -410,7 +410,7 @@ int PCI::store8(u8 val, u32 addr) {
   }
 
   if (!RAM::range.offset(index, addr)) {
-    memory::store8(ram.data, val, index);
+    memory::store8(ram.data, index, val);
     return 0;
   }
 

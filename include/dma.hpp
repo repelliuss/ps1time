@@ -8,14 +8,14 @@
 struct DMA {
   static constexpr u32 size = 0x80;
   static constexpr Range range = {0x1f801080, 0x1f801100};
+  u8 data[size] = {0};
 
-  // TODO: remove struct, prefix reg_ not really a type
-  /// register indexes
-  struct reg {
+  struct Reg {
+    /// register indexes
     static constexpr u32 control = 0x70;
     static constexpr u32 interrupt = 0x74;
 
-    // only [0:23] are significant
+    // NOTE: only [0:23] are significant
     static constexpr u32 mdecin_base_address = 0x00;
     static constexpr u32 mdecout_base_address = 0x10;
     static constexpr u32 gpu_base_address = 0x20;
@@ -43,13 +43,6 @@ struct DMA {
 
   // NOTE: all data that is being mutated should be reflected by calling
   // internal sync()
-  // TODO: decompose 32bit values to descriptive values then at the end, compose
-  // & sync before returning to callee from dma. This approach's disadvantage is
-  // that ChannelView should be constructed every time since we don't care about
-  // stores and loads to DMA data which we get our performance benefit. As of
-  // writing, only channel_control register benefits from decomposing and
-  // composing as others seem to be immutable during operations. Needs testing
-  // for all claims
   struct ChannelView {
     // add offsets to get proper register
     // for example:
@@ -58,6 +51,7 @@ struct DMA {
     // +0 to get base address
     // TODO: may be useless, see make_channel
     enum struct Type : u32 {
+      none = 0xdeadbeef,
       MdecIn = 0x00,
       MdecOut = 0x10,
       GPU = 0x20,
@@ -75,32 +69,32 @@ struct DMA {
     };
 
     // REVIEW: if there becomes many writes to a channel at the same time, it
-    // can be optimized with storing at the end with a function like
+    // can be optimized with storing only before loading with a function like
     // sync_to_dma()
 
-    const Type type;
-    const u32 base_address;
+    Type type = Type::none;
+    u32 base_address;
 
     /// [0, 15] contains block_size [16, 31] contains block_count
     /// for manual sync mode, only block_size is used
     /// for request sync mode, both used
     /// others shouldn't need
-    const u32 block_control;
+    u32 block_control;
 
     u8 *channel_control_addr; // NOTE: next 4 words contain channel_control
     u32 channel_control;      // copied at initialization
   };
-  
-  u8 data[size] = {0};
+
   RAM &ram;
   GPU &gpu;
 
   DMA(RAM &ram, GPU &gpu);
 
-  ChannelView make_channel_view(u32 dma_reg_index); // TODO: should not be really needed
+  // TODO: may not be needed, may create chviews at beginning and track it there
+  ChannelView make_channel_view(u32 dma_reg_index); 
 
   //reg::interrupt
-  bool irq_active(); // TODO: can be private
+  bool irq_active();
   void set_interrupt(u32 val);
 
   //reg::*_base_address

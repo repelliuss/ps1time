@@ -38,14 +38,13 @@ void CPU::dump() {
   printf("\n\n");
 }
 
-bool CPU::cache_isolated() { return (cop0.regs[12] & 0x10000) != 0; }
+bool CPU::cache_isolated() { return (cop0.regs[COP0::Reg::sr] & 0x10000) != 0; }
 
 int CPU::dump_and_next() {
   dump();
   return next();
 }
 
-// TODO: remove assertions
 int CPU::next() {
   // save cur pc here in case of expceiton for EPC
   cur_pc = pc;
@@ -78,8 +77,8 @@ int CPU::next() {
   }
 
   {
-    // copy out_regs to in_regs, continuation of pending load absorb
     // TODO: re-design here
+    // copy out_regs to in_regs, continuation of pending load absorb
     memcpy(in_regs, out_regs, sizeof(u32) * 32);
   }
 
@@ -100,7 +99,7 @@ int CPU::decode_execute_cop0(const Instruction &instruction) {
     return rfe(instruction);
   }
 
-  printf("Illegal cop0 instruction %x!\n", instruction.data);
+  LOG_WARN("Illegal cop0 instruction 0x%08x", instruction.data);
   return exception(Cause::illegal_instruction);
 }
 
@@ -109,7 +108,7 @@ int CPU::decode_execute_cop1(const Instruction &instruction) {
 }
 
 int CPU::decode_execute_cop2(const Instruction &instruction) {
-  printf("unhandled GTE instruction: %x\n", instruction.data);
+  LOG_ERROR("Unhandled GTE instruction: 0x%08x", instruction.data);
   return -1;
 }
 
@@ -168,8 +167,7 @@ int CPU::decode_execute_sub(const Instruction &instruction) {
   case 0x21:
     return addu(instruction);
   case 0x0:
-    sll(instruction);
-    return 0;
+    return sll(instruction);
   case 0x25:
     return ins_or(instruction);
   case 0x2b:
@@ -178,7 +176,7 @@ int CPU::decode_execute_sub(const Instruction &instruction) {
     return jr(instruction);
   }
 
-  printf("Illegal sub instruction %x!\n", instruction.data);
+  LOG_WARN("Illegal sub instruction 0x%08x", instruction.data);
   return exception(Cause::illegal_instruction);
 }
 
@@ -243,19 +241,15 @@ int CPU::decode_execute(const Instruction &instruction) {
   case 0x29:
     return sh(instruction);
   case 0b001111:
-    lui(instruction);
-    return 0;
+    return lui(instruction);
   case 0xd:
-    ori(instruction);
-    return 0;
+    return ori(instruction);
   case 0b101011:
     return sw(instruction);
   case 0x9:
-    addiu(instruction);
-    return 0;
+    return addiu(instruction);
   case 0x2:
-    j(instruction);
-    return 0;
+    return j(instruction);
   case 0x5:
     return bne(instruction);
   case 0x8:
@@ -270,7 +264,7 @@ int CPU::decode_execute(const Instruction &instruction) {
     return beq(instruction);
   }
 
-  printf("Illegal instruction %x!\n", instruction.data);
+  LOG_WARN("Illegal instruction 0x%08x", instruction.data);
   return exception(Cause::illegal_instruction);
 }
 
@@ -279,7 +273,7 @@ int CPU::exception(const Cause &cause) {
 
   // NOTE: nocash says BEV=1 exception vectors doesn't happen
   // Exception handler address depends on the 'BEV' bit
-  if ((cop0.regs[COP0::index_sr] & (1 << 22)) != 0) {
+  if ((cop0.regs[COP0::Reg::sr] & (1 << 22)) != 0) {
     handler = 0xbfc00180;
   } else {
     handler = 0x80000080;
@@ -292,20 +286,20 @@ int CPU::exception(const Cause &cause) {
   // interrupts and puts the CPU in kernel mode. The original
   // third entry is discarded (it's up to the kernel to handle
   // more than two recursive exception levels).
-  u32 mode = cop0.regs[COP0::index_sr] & 0x3f;
-  cop0.regs[COP0::index_sr] &= ~0x3f;
-  cop0.regs[COP0::index_sr] |= (mode << 2) & 0x3f;
+  u32 mode = cop0.regs[COP0::Reg::sr] & 0x3f;
+  cop0.regs[COP0::Reg::sr] &= ~0x3f;
+  cop0.regs[COP0::Reg::sr] |= (mode << 2) & 0x3f;
 
   // Update `CAUSE` register with the exception code (bits
   // [6:2])
-  cop0.regs[COP0::index_cause] = static_cast<u32>(cause) << 2;
+  cop0.regs[COP0::Reg::cause] = static_cast<u32>(cause) << 2;
 
   // Save current instruction address in `EPC`
-  cop0.regs[COP0::index_epc] = cur_pc;
+  cop0.regs[COP0::Reg::epc] = cur_pc;
 
   if (in_delay_slot) {
-    cop0.regs[COP0::index_epc] -= 4;
-    cop0.regs[COP0::index_cause] |= 1 << 31;
+    cop0.regs[COP0::Reg::epc] -= 4;
+    cop0.regs[COP0::Reg::cause] |= 1 << 31;
   }
 
   pc = handler;
@@ -314,20 +308,23 @@ int CPU::exception(const Cause &cause) {
   return 0;
 }
 
-constexpr u32 CPU::reg(u32 index) { return in_regs[index]; }
+u32 CPU::reg(u32 index) { return in_regs[index]; }
 
-constexpr void CPU::set_reg(u32 index, u32 val) {
+void CPU::set_reg(u32 index, u32 val) {
   out_regs[index] = val;
   out_regs[0] = 0;
 }
 
-void CPU::lui(const Instruction &i) { set_reg(i.rt(), i.imm16() << 16); }
-
-void CPU::ori(const Instruction &i) {
-  set_reg(i.rt(), reg(i.rs()) | i.imm16());
+int CPU::lui(const Instruction &i) {
+  set_reg(i.rt(), i.imm16() << 16);
+  return 0;
 }
 
-// TODO: change offset to index as data is separated
+int CPU::ori(const Instruction &i) {
+  set_reg(i.rt(), reg(i.rs()) | i.imm16());
+  return 0;
+}
+
 int CPU::sw(const Instruction &i) {
   if (cache_isolated()) {
     LOG_INFO("[FN:CPU::sw] Cache is isolated");
@@ -344,17 +341,20 @@ int CPU::sw(const Instruction &i) {
   return pci.store32(val, addr);
 }
 
-void CPU::sll(const Instruction &i) {
+int CPU::sll(const Instruction &i) {
   set_reg(i.rd(), reg(i.rt()) << i.shamt());
+  return 0;
 }
 
-void CPU::addiu(const Instruction &i) {
+int CPU::addiu(const Instruction &i) {
   set_reg(i.rt(), reg(i.rs()) + i.imm16_se());
+  return 0;
 }
 
-void CPU::j(const Instruction &i) {
+int CPU::j(const Instruction &i) {
   next_pc = (pc & 0xf0000000) | (i.imm26() << 2);
   branch_ocurred = false;
+  return 0;
 }
 
 int CPU::ins_or(const Instruction &i) {
@@ -375,7 +375,7 @@ int CPU::mtc0(const Instruction &i) {
   case 9:
   case 11:
     if (val != 0) {
-      printf("Unhandled write to cop0 register %u\n", cop_r);
+      LOG_ERROR("[VAL:0x%x] Unhandled write to cop0 register %u", val, cop_r);
       return -1;
     }
     break;
@@ -386,17 +386,17 @@ int CPU::mtc0(const Instruction &i) {
 
   case 13:
     if (val != 0) {
-      printf("Unhandled write to CAUSE(13) register\n");
+      LOG_ERROR("[VAL:0x%x] Unhandled write to CAUSE(13) register", val);
       return -1;
     }
     break;
 
   default:
-    printf("Unhandled cop0 register %u\n", cop_r);
+    LOG_ERROR("[VAL:0x%x] Unhandled cop0 register %u", val, cop_r);
     return -1;
   }
 
-  // TODO: cop0 doesn't have in reg out reg concept because of load delay
+  // NOTE: cop0 doesn't have in reg out reg concept because of load delay
   cop0.regs[cop_r] = val;
 
   return 0;
@@ -417,7 +417,6 @@ int CPU::bne(const Instruction &i) {
 
 // returns 1 on overflow
 [[nodiscard]] static constexpr int checked_sum(i32 &sum, i32 a, i32 b) {
-  // REVIEW: volatile may be required
   sum = a + b;
   return (sum < a) != (b < 0);
 }
@@ -531,15 +530,15 @@ int CPU::mfc0(const Instruction &i) {
   u32 val;
 
   switch (cop_r) {
-  case COP0::index_sr:
-  case COP0::index_cause:
-  case COP0::index_epc:
+  case COP0::Reg::sr:
+  case COP0::Reg::cause:
+  case COP0::Reg::epc:
     pending_load.reg_index = i.rt();
     pending_load.val = cop0.regs[cop_r];
     return 0;
   }
 
-  printf("Unhandled read from cop0 register!\n");
+  LOG_ERROR("Unhandled read from cop0 register");
   return -1;
 }
 
@@ -632,7 +631,6 @@ int CPU::subu(const Instruction &i) {
 }
 
 int CPU::sra(const Instruction &i) {
-  // REVIEW: may remove the cast and just assign
   i32 val = static_cast<i32>(reg(i.rt())) >> i.shamt();
   set_reg(i.rd(), val);
   return 0;
@@ -731,13 +729,13 @@ int CPU::rfe(const Instruction &i) {
   // implement them
   // REVIEW: may remove this rfe check
   if ((i.data & 0x3f) != 0b010000) {
-    printf("Invalid cop0 instruction: %x\n", i.data);
+    LOG_ERROR("Invalid cop0 instruction: 0x%08x", i.data);
     return -1;
   }
 
-  u32 mode = cop0.regs[COP0::index_sr] & 0x3f;
-  cop0.regs[COP0::index_sr] &= ~0x3f;
-  cop0.regs[COP0::index_sr] |= mode >> 2;
+  u32 mode = cop0.regs[COP0::Reg::sr] & 0x3f;
+  cop0.regs[COP0::Reg::sr] &= ~0x3f;
+  cop0.regs[COP0::Reg::sr] |= mode >> 2;
 
   return 0;
 }
@@ -759,7 +757,6 @@ int CPU::sllv(const Instruction &i) {
   return 0;
 }
 
-// TODO: call lhu and sign extend pending load value?
 int CPU::lh(const Instruction &i) {
   u32 addr = reg(i.rs()) + i.imm16_se();
 
@@ -842,7 +839,7 @@ int CPU::lwl(const Instruction &i) {
   // bypass load delay restriction. instruction will merge new contents
   // with the value currently being loaded if need be.
   u32 cur_val = out_regs[i.rt()];
-  
+
   pending_load.reg_index = i.rt();
 
   u32 aligned_word;
@@ -868,7 +865,6 @@ int CPU::lwl(const Instruction &i) {
   return 0;
 }
 
-// TODO: duplicates code with lwl
 int CPU::lwr(const Instruction &i) {
   u32 unaligned_addr = reg(i.rs()) + i.imm16_se();
   u32 aligned_addr = unaligned_addr & 0b00;
@@ -937,7 +933,6 @@ int CPU::swl(const Instruction &i) {
 }
 
 int CPU::swr(const Instruction &i) {
-  // TODO: duplicate
   if (cache_isolated()) {
     LOG_INFO("[FN:CPU::swr] Cache is isolated");
     return 0;
@@ -951,7 +946,7 @@ int CPU::swr(const Instruction &i) {
   int status = pci.load32(cur_mem_val, aligned_addr);
   if (status < 0)
     return status;
-  
+
   u32 new_mem_val;
   switch (unaligned_addr & 0b11) {
   case 0:
@@ -980,7 +975,7 @@ int CPU::lwc1(const Instruction &i) {
 }
 
 int CPU::lwc2(const Instruction &i) {
-  printf("unhandled GTE LWC: %x\n", i.data);
+  LOG_ERROR("Unhandled GTE LWC: 0x%08x", i.data);
   return -1;
 }
 
@@ -997,7 +992,7 @@ int CPU::swc1(const Instruction &i) {
 }
 
 int CPU::swc2(const Instruction &i) {
-  printf("unhandled GTE SWC: %x\n", i.data);
+  LOG_ERROR("Unhandled GTE SWC: 0x%08x", i.data);
   return -1;
 }
 

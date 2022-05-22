@@ -74,6 +74,8 @@ struct GPU {
   static constexpr Range range = {0x1f801810, 0x1f801818};
   u8 data[size];
 
+  GPU(Renderer *renderer) : renderer(renderer) {}
+
   /// True when the interrupt is active
   bool interrupt = false;
 
@@ -188,7 +190,6 @@ struct GPU {
   GP0mode gp0_mode = GP0mode::command;
 
   Renderer *renderer;
-
 
   u32 status();
   u32 read();

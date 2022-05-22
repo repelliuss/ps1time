@@ -5,7 +5,7 @@
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 
-// REVIEW: this constant
+// REVIEW: MAX_VERTEX_BUFFER_LEN constant
 constexpr u32 MAX_VERTEX_BUFFER_LEN = 64 * 1024;
 
 struct Position {

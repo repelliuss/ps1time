@@ -10,10 +10,11 @@ struct COP0 {
   // REVIEW: nocash says 32-63 is N/A should I remove?
   u32 regs[64] = {0};
 
-  // TODO: i to ins for instruction, index to i for index
-  static constexpr int index_sr = 12;
-  static constexpr int index_cause = 13;
-  static constexpr int index_epc = 14;
+  struct Reg {
+    static constexpr int sr = 12;
+    static constexpr int cause = 13;
+    static constexpr int epc = 14;
+  };
 };
 
 struct PendingLoad {
@@ -50,11 +51,13 @@ struct CPU {
   static constexpr PendingLoad no_op_load = {0, 0};
   PendingLoad pending_load = no_op_load;
 
-  // REVIEW: should I be careful about $zero being overwritten?
+  CPU(const PCI &pci) = delete;
+  PCI &operator=(const PCI &pci) = delete;
+
   CPU(PCI &pci) : pci(pci) {
     in_regs[0] = out_regs[0] = 0;
-    // TODO: remove this init for loop
-    for(int i = 1; i < 32; ++i) {
+    // TODO: remove deadbeefs
+    for (int i = 1; i < 32; ++i) {
       out_regs[i] = in_regs[i] = 0xdeadbeef;
     }
   }
@@ -63,27 +66,27 @@ struct CPU {
 
   int next();
   int dump_and_next();
-  int fetch(u32& instruction_data, u32 addr);
-  int decode_execute(const Instruction& instruction);
-  int decode_execute_sub(const Instruction& instruction); // TODO: to static
-  int decode_execute_cop0(const Instruction& instruction); // TODO: to static
-  int decode_execute_cop1(const Instruction& instruction); // TODO: to static
-  int decode_execute_cop2(const Instruction& instruction); // TODO: to static
-  int decode_execute_cop3(const Instruction& instruction); // TODO: to static
+  int fetch(u32 &instruction_data, u32 addr);
+  int decode_execute(const Instruction &instruction);
+  int decode_execute_sub(const Instruction &instruction);
+  int decode_execute_cop0(const Instruction &instruction);
+  int decode_execute_cop1(const Instruction &instruction);
+  int decode_execute_cop2(const Instruction &instruction);
+  int decode_execute_cop3(const Instruction &instruction);
 
   void branch(u32 offset);
   int exception(const Cause &cause);
 
-  constexpr void set_reg(u32 index, u32 val);
-  constexpr u32 reg(u32 index);
+  void set_reg(u32 index, u32 val);
+  u32 reg(u32 index);
+  bool cache_isolated();
 
-  // TODO: void instructions to int
-  void lui(const Instruction& instruction);
-  void ori(const Instruction& instruction);
+  int lui(const Instruction& instruction);
+  int ori(const Instruction& instruction);
   int sw(const Instruction& instruction);
-  void sll(const Instruction& instruction);
-  void addiu(const Instruction& instruction);
-  void j(const Instruction& instruction);
+  int sll(const Instruction& instruction);
+  int addiu(const Instruction& instruction);
+  int j(const Instruction& instruction);
   int ins_or(const Instruction& instruction);
   int mtc0(const Instruction& instruction);
   int bne(const Instruction& instruction);
@@ -144,9 +147,4 @@ struct CPU {
   int swc1(const Instruction &instruction);
   int swc2(const Instruction &instruction);
   int swc3(const Instruction &instruction);
-  
-  
-  // TODO: may move cop0 instructions to its own
-  
-  bool cache_isolated();
 };

@@ -22,7 +22,7 @@ static int gp0_draw_mode(GPU &gpu, const GPUcommandBuffer &buf) {
     gpu.tex_depth = TextureDepth::t15bit;
     break;
   default:
-    fprintf(stderr, "Unhandled texture depth %d\n", bits_in_range(val, 7, 9));
+    LOG_ERROR("Unhandled texture depth %d", bits_in_range(val, 7, 9));
     return -1;
   }
 
@@ -87,7 +87,6 @@ static int gp0_mask_bit_setting(GPU &gpu, const GPUcommandBuffer &buf) {
   return 0;
 }
 
-// TODO: unimplemented
 static int gp0_quad_mono_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
   const Position positions[4] = {
       pos_from_gp0(buf.data[1]),
@@ -136,7 +135,8 @@ static int gp0_store_image(GPU &gpu, const GPUcommandBuffer &buf) {
   u32 width = resolution & 0xffff;
   u32 height = resolution >> 16;
 
-  printf("Unhandled image store: %dx%d\n", width, height);
+  LOG_WARN("Unhandled image store: %dx%d", width, height);
+  // TODO: doesn't return an error
   return 0;
 }
 
@@ -260,7 +260,7 @@ int GPU::gp0(u32 val) {
       break;
 
     default:
-      printf("Unhandled GP0 command %08x\n", val);
+      LOG_ERROR("Unhandled GP0 command 0x%x", val);
       return -1;
     }
   }
@@ -330,7 +330,7 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   gpu.force_set_mask_bit = false;
   gpu.preserve_masked_pixels = false;
 
-  // REVIEW: field is not being reset
+  // REVIEW: field member is not being reset
 
   gpu.dma_direction = DMAdirection::off;
 
@@ -380,7 +380,7 @@ int gp1_display_mode(GPU &gpu, u32 val) {
   gpu.interlaced = bit(val, 5) != 0;
 
   if (bit(val, 7) != 0) {
-    printf("Unsupported display mode %08x\n", val);
+    LOG_ERROR("Unsupported display mode 0x%x", val);
     return -1;
   }
 
@@ -446,7 +446,7 @@ int GPU::gp1(u32 val) {
   case 0x08:
     return gp1_display_mode(*this, val);
   default:
-    printf("Unhandled GP1 command %08x\n", val);
+    LOG_ERROR("Unhandled GP1 command 0x%x", val);
     return -1;
   }
 }
@@ -517,7 +517,7 @@ u32 GPU::status() {
 }
 
 u32 GPU::read() {
-  printf("GPUREAD\n");
+  LOG_WARN("GPUREAD");
   return 0;
 }
 
