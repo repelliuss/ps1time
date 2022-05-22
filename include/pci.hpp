@@ -149,4 +149,5 @@ struct PCI {
 
   int store32(u32 val, u32 addr);
   int store16(u16 val, u32 addr);
+  int store8(u8 val, u32 addr);
 };

@@ -111,6 +111,14 @@ constexpr int ignore_load_with(LoadType &val, const char *fn, u32 addr,
   return 0;
 }
 
+template <typename StoreType>
+constexpr int ignore_store(StoreType val, const char *fn, u32 addr,
+			   u32 index, const char *msg) {
+  LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignored %s", fn, addr,
+            index, val, msg);
+  return 0; 
+}
+
 int PCI::load32(u32 &val, u32 addr) {
   static const char *fn = "PCI::load32";
   u32 index;
@@ -331,15 +339,11 @@ int PCI::store32(u32 val, u32 addr) {
   }
 
   if (!RamSize::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "RamSize");
-    return 0;
+    return ignore_store(val, fn, addr, index, "RamSize");
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "CacheCtrl");
-    return 0;
+    return ignore_store(val, fn, addr, index, "CacheCtrl");
   }
 
   if (!RAM::range.offset(index, addr)) {
@@ -366,15 +370,11 @@ int PCI::store32(u32 val, u32 addr) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "IRQ");
-    return 0;
+    return ignore_store(val, fn, addr, index, "IRQ");
   }
 
   if (!Timers::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "Timers");
-    return 0;
+    return ignore_store(val, fn, addr, index, "Timers");
   }
   
   if (!DMA::range.offset(index, addr)) {
@@ -425,9 +425,7 @@ int PCI::store16(u16 val, u32 addr) {
   }
 
   if (!SPU::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "IRQ");
-    return 0;
+    return ignore_store(val, fn, addr, index, "SPU");
   }
 
   if (!Expansion1::range.offset(index, addr)) {
@@ -443,15 +441,11 @@ int PCI::store16(u16 val, u32 addr) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "IRQ");
-    return 0;
+    return ignore_store(val, fn, addr, index, "IRQ");
   }
 
   if (!Timers::range.offset(index, addr)) {
-    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
-              index, val, "Timers");
-    return 0;
+    return ignore_store(val, fn, addr, index, "Timers");
   }
   
   if (!DMA::range.offset(index, addr)) {
@@ -470,3 +464,81 @@ int PCI::store16(u16 val, u32 addr) {
   return -1;
 }
 
+int PCI::store8(u8 val, u32 addr) {
+  static const char *fn = "PCI::store8";
+  u32 index;
+
+  addr = mask_addr_to_region(addr);
+
+  if (!Bios::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Bios");
+    return -1;
+  }
+
+  if (!MemCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "MemCtrl");
+    return -1;
+  }
+
+  if (!RamSize::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "RamSize");
+    return -1;
+  }
+
+  if (!CacheCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "CacheCtrl");
+    return -1;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    memory::store8(ram.data, val, index);
+    return 0;
+  }
+
+  if (!SPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignored %s", fn, addr,
+              index, val, "IRQ");
+    return -1;
+  }
+
+  if (!Expansion1::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Expansion1");
+    return -1;
+  }
+
+  if (!Expansion2::range.offset(index, addr)) {
+    return ignore_store(val, fn, addr, index, "Expansion2");
+  }
+
+  if (!IRQ::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "IRQ");
+    return -1;
+  }
+
+  if (!Timers::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Timers");
+    return -1;
+  }
+  
+  if (!DMA::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "DMA");
+    return -1;
+  }
+
+  if (!GPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "GPU");
+    return -1;
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
+  return -1;
+}

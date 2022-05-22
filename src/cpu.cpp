@@ -497,47 +497,16 @@ int CPU::andi(const Instruction &i) {
   return 0;
 }
 
-static int store8_prohibited(PCIType match, u32 offset, u32 addr) {
-  switch (match) {
-  case PCIType::ram:
-    return 0;
-  case PCIType::expansion2:
-    printf("Unhandled write to expansion 2 register %x\n", offset);
-    return 1;
-
-  default:
-    printf("unhandled store8 into address %x\n", addr);
-    return -1;
-  }
-}
-
 int CPU::sb(const Instruction &i) {
-
   if (cache_isolated()) {
-    // TODO: read/writes should go through cache
-    printf("Ignoring store while cache is isolated\n");
+    LOG_INFO("[FN:CPU::sb] Cache is isolated");
     return 0;
   }
 
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
-  u32 value = reg(i.rt());
-  PCIType match = pci.match(data, offset, addr);
+  u32 val = reg(i.rt());
 
-  if (match == PCIType::none)
-    return -1;
-
-  int status = store8_prohibited(match, offset, addr);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-  // NOTE: only ram store8 is valid and it doesn't do conversion
-
-  memory::store8(data, value, offset);
-  return 0;
+  return pci.store8(val, addr);
 }
 
 int CPU::jr(const Instruction &i) {
