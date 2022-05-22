@@ -469,60 +469,20 @@ int CPU::addu(const Instruction &i) {
   return 0;
 }
 
-static int store16_prohibited(PCIType match, u32 offset, u32 addr, u16 val) {
-  switch (match) {
-  case PCIType::ram:
-    return 0;
-
-  case PCIType::spu:
-    printf("Unhandled write to SPU register %08x: %04x\n", addr, val);
-    return 1;
-
-  case PCIType::timers:
-    printf("Unhandled write to timer register %x\n", offset);
-    return 1;
-
-  case PCIType::irq:
-    printf("IRQ control write %x, %04x\n", offset, val);
-    return 1;
-
-  default:
-    printf("unhandled store16 into address %08x\n", addr);
-    return -1;
-  }
-}
-
 int CPU::sh(const Instruction &i) {
-
   if (cache_isolated()) {
-    // TODO: read/writes should go through cache
-    printf("Ignoring store while cache is isolated\n");
+    LOG_INFO("[FN:CPU::sh] Cache is isolated");
     return 0;
   }
 
-  u8 *data;
-  u32 offset;
   u32 addr = reg(i.rs()) + i.imm16_se();
-  u32 value = reg(i.rt());
+  u32 val = reg(i.rt());
 
   if (addr % 2 != 0) {
     return exception(Cause::unaligned_store_addr);
   }
 
-  PCIType match = pci.match(data, offset, addr);
-
-  if (match == PCIType::none)
-    return -1;
-
-  int status = store16_prohibited(match, offset, addr, value);
-  if (status < 0)
-    return -1;
-  if (status == 1)
-    return 0;
-
-  memory::store16(data, value, offset);
-
-  return 0;
+  return pci.store16(val, addr);
 }
 
 int CPU::jal(const Instruction &i) {

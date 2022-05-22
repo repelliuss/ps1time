@@ -388,3 +388,85 @@ int PCI::store32(u32 val, u32 addr) {
   LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
   return -1;
 }
+
+int PCI::store16(u16 val, u32 addr) {
+  static const char *fn = "PCI::store16";
+  u32 index;
+  
+  addr = mask_addr_to_region(addr);
+
+  if (!Bios::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Bios");
+    return -1;
+  }
+
+  if (!MemCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "MemCtrl");
+    return -1;
+  }
+
+  if (!RamSize::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "RamSize");
+    return -1;
+  }
+
+  if (!CacheCtrl::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "CacheCtrl");
+    return -1;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    memory::store16(ram.data, val, index);
+    return 0;
+  }
+
+  if (!SPU::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "IRQ");
+    return 0;
+  }
+
+  if (!Expansion1::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Expansion1");
+    return -1;
+  }
+
+  if (!Expansion2::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "Expansion2");
+    return -1;
+  }
+
+  if (!IRQ::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "IRQ");
+    return 0;
+  }
+
+  if (!Timers::range.offset(index, addr)) {
+    LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] Ignoring %s", fn, addr,
+              index, val, "Timers");
+    return 0;
+  }
+  
+  if (!DMA::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "DMA");
+    return -1;
+  }
+
+  if (!GPU::range.offset(index, addr)) {
+    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
+              "GPU");
+    return -1;
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
+  return -1;
+}
+
