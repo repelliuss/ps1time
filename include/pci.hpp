@@ -6,29 +6,15 @@
 #include "dma.hpp"
 #include "ram.hpp"
 #include "gpu.hpp"
-
+#include "peripheral.hpp"
+#include "clock.hpp"
 #include "log.hpp"
+#include "instruction.hpp"
 
 #include <cstdlib>
 #include <cstring>
 
 // TODO:  remove HeapByteData struct and allocate all memory at once
-
-enum struct PCIType {
-  none = -1,
-  bios,
-  hw_regs,
-  ram_size,
-  cache_ctrl,
-  ram,
-  spu,
-  expansion1,
-  expansion2,
-  irq,
-  timers,
-  dma,
-  gpu,
-};
 
 // TODO: may remove size constants
 
@@ -160,17 +146,22 @@ struct PCI {
   Timers timers;
   DMA dma;
 
-  PCI(Bios &&bios, Renderer *renderer)
-      : bios(bios), gpu(renderer), dma(ram, gpu) {}
+  PCI(Bios &&bios, Renderer *renderer, VideoMode configured_hardware_video_mode)
+      : bios(bios), gpu(renderer, configured_hardware_video_mode),
+        dma(ram, gpu) {}
 
   PCI(const PCI &pci) = delete;
   PCI &operator=(const PCI &pci) = delete;
 
-  int load32(u32 &val, u32 addr);
+  void clock_sync(Clock &clock);
+
+  int load_instruction(Instruction &ins, u32 addr);
+
+  int load32(u32 &val, u32 addr, Clock &clock);
   int load16(u32 &val, u32 addr);
   int load8(u32 &val, u32 addr);
 
-  int store32(u32 val, u32 addr);
+  int store32(u32 val, u32 addr, Clock &clock);
   int store16(u16 val, u32 addr);
   int store8(u8 val, u32 addr);
 };

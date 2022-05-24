@@ -4,6 +4,7 @@
 #include "bits.hpp"
 #include "range.hpp"
 #include "renderer.hpp"
+#include "clock.hpp"
 
 enum struct GP0mode {
   command,
@@ -18,7 +19,7 @@ enum struct TextureDepth : u8 {
 };
 
 /// Interlaced output splits each frame in two fields
-enum struct Field {
+enum struct Field : u64 {
   top = 1,    // NOTE: odd lines
   bottom = 0, // NOTE: even lines
 };
@@ -74,10 +75,11 @@ struct GPU {
   static constexpr Range range = {0x1f801810, 0x1f801818};
   u8 data[size];
 
-  GPU(Renderer *renderer) : renderer(renderer) {}
+  Renderer *renderer;
 
-  /// True when the interrupt is active
-  bool interrupt = false;
+  GPU(Renderer *renderer, VideoMode configured_hardware_video_mode)
+      : renderer(renderer),
+        configured_hardware_video_mode(configured_hardware_video_mode) {}
 
   /// Texture page base X coordinate (4 bits, 64 byte increment)
   u8 page_base_x = 0;
@@ -182,20 +184,51 @@ struct GPU {
   DisplayDepth display_depth = DisplayDepth::d15bits;
 
   using GPUcommand = int(*)(GPU&, const GPUcommandBuffer &buf);
-
-  GPUcommandBuffer gp0_cmd_buf;
-  u32 gp0_cmd_pending_words_count = 0;
-  GPUcommand gp0_cmd;
-
   GP0mode gp0_mode = GP0mode::command;
 
-  Renderer *renderer;
+  /// Some commands needs more arguments than that can be given at once
+  GPUcommandBuffer gp0_cmd_buf;
+  u32 gp0_cmd_pending_words_count = 0;
+  
+  GPUcommand gp0_cmd;
+
+  /// True when GP0 IRQ
+  bool gp0_interrupt = false;
+
+  /// True when VBLANK interrupt is high
+  bool vblank_interrupt = false;
+
+  /// NOTE: Use 16bits for the fractional part of the clock ratio to get good
+  /// precision
+  static constexpr u64 clock_ratio_frac = 0x10000;
+
+  /// Fractional GPU cycle remainder resulting from the CPU clock/GPU clock time
+  /// conversion
+  u16 gpu_clock_frac = 0;
+
+  /// Currently displayed video output line
+  u16 display_line = 0;
+
+  /// Current GPU clock tick for the current line
+  u16 display_line_tick = 0;
+
+  /// PAL or NTSC, depends on the region
+  VideoMode configured_hardware_video_mode = VideoMode::ntsc;
 
   u32 status();
   u32 read();
   int gp0(u32 val);
-  int gp1(u32 val);
+  int gp1(u32 val, Clock &clock);
 
-  int load32(u32 &val, u32 index);
-  int store32(u32 val, u32 index);
+  int load32(u32 &val, u32 index, Clock &clock);
+  int store32(u32 val, u32 index, Clock &clock);
+
+  // GPU timings
+  void vmode_timings(u16 &horizontal, u16 &vertical);
+  u64 gpu_to_cpu_clock_ratio();
+  void clock_sync(Clock &clock);
+  bool in_vblank();
+  void predict_next_clock_sync(Clock &clock);
+
+  u16 displayed_vram_line();
 };

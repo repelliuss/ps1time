@@ -62,9 +62,7 @@ static int gp0_drawing_offset(GPU &gpu, const GPUcommandBuffer &buf) {
   i16 offset_x = (static_cast<i16>(x << 5)) >> 5;
   i16 offset_y = (static_cast<i16>(y << 5)) >> 5;
 
-  gpu.renderer->set_drawing_offset(x, y);
-
-  return gpu.renderer->display();
+  return gpu.renderer->set_drawing_offset(x, y);
 }
 
 static int gp0_texture_window(GPU &gpu, const GPUcommandBuffer &buf) {
@@ -302,9 +300,83 @@ int gp1_dma_direction(GPU &gpu, u32 val) {
   return 0;
 }
 
-int gp1_soft_reset(GPU &gpu, u32 val) {
-  gpu.interrupt = false;
 
+int gp1_display_mode(GPU &gpu, u32 val, Clock &clock) {
+  u8 hr1 = bits_in_range(val, 0, 1);
+  u8 hr2 = bit(val, 6);
+  gpu.hres = hres_from_fields(hr1, hr2);
+
+  if (bit(val, 2) != 0) {
+    gpu.vres = VerticalRes::y480lines;
+  } else {
+    gpu.vres = VerticalRes::y240lines;
+  }
+
+  if (bit(val, 3) != 0) {
+    gpu.video_mode = VideoMode::pal;
+  } else {
+    gpu.video_mode = VideoMode::ntsc;
+  }
+
+  if (bit(val, 4) != 0) {
+    gpu.display_depth = DisplayDepth::d15bits;
+  } else {
+    gpu.display_depth = DisplayDepth::d24bits;
+  }
+
+  gpu.interlaced = bit(val, 5) != 0;
+
+  // TODO: not sure about resetting
+  gpu.field = Field::top;
+
+  if (bit(val, 7) != 0) {
+    LOG_ERROR("Unsupported display mode 0x%x", val);
+    return -1;
+  }
+
+  gpu.clock_sync(clock);
+
+  return 0;
+}
+
+int gp1_display_vram_start(GPU &gpu, u32 val) {
+  // lsb ignored to be always aligned to a 16 bit pixel
+  gpu.display_vram_x_start = (val & 0b1111111110);
+  gpu.display_vram_y_start = bits_in_range(val, 10, 18);
+  return 0;
+}
+
+int gp1_display_horizontal_range(GPU &gpu, u32 val) {
+  gpu.display_horiz_start = bits_in_range(val, 0, 11);
+  gpu.display_horiz_end = bits_in_range(val, 12, 23);
+  return 0;
+}
+
+int gp1_display_vertical_range(GPU &gpu, u32 val, Clock &clock) {
+  gpu.display_line_start = bits_in_range(val, 0, 9);
+  gpu.display_line_end = bits_in_range(val, 10, 19);
+  gpu.clock_sync(clock);
+  return 0;
+}
+
+static int gp1_display_enable(GPU &gpu, u32 val) {
+  gpu.display_disabled = bit(val, 0) != 0;
+  return 0;
+}
+
+static int gp1_ack_irq(GPU &gpu, u32 val) {
+  gpu.gp0_interrupt = false;
+  return 0;
+}
+
+static int gp1_reset_command_buffer(GPU &gpu, u32 val) {
+  clear(gpu.gp0_cmd_buf);
+  gpu.gp0_cmd_pending_words_count = 0;
+  gpu.gp0_mode = GP0mode::command;
+  return 0;
+}
+
+int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock) {
   gpu.page_base_x = 0;
   gpu.page_base_y = 0;
   gpu.semi_transparency = 0;
@@ -330,8 +402,6 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   gpu.force_set_mask_bit = false;
   gpu.preserve_masked_pixels = false;
 
-  // REVIEW: field member is not being reset
-
   gpu.dma_direction = DMAdirection::off;
 
   gpu.display_disabled = true;
@@ -339,6 +409,7 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   gpu.display_vram_y_start = 0;
   gpu.hres = hres_from_fields(0, 0);
   gpu.vres = VerticalRes::y240lines;
+  gpu.field = Field::top;
 
   gpu.video_mode = VideoMode::ntsc;
   gpu.interlaced = true;
@@ -347,6 +418,13 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   gpu.display_line_start = 0x10;
   gpu.display_line_end = 0x100;
   gpu.display_depth = DisplayDepth::d15bits;
+  gpu.display_line = 0;
+  gpu.display_line_tick = 0;
+
+  gp1_reset_command_buffer(gpu, 0);
+  gp1_ack_irq(gpu, 0);
+
+  gpu.clock_sync(clock);
 
   // TODO: should also clear the command FIFO
   // TODO: should also invalidate GPU cache
@@ -354,81 +432,12 @@ int gp1_soft_reset(GPU &gpu, u32 val) {
   return 0;
 }
 
-int gp1_display_mode(GPU &gpu, u32 val) {
-  u8 hr1 = bits_in_range(val, 0, 1);
-  u8 hr2 = bit(val, 6);
-  gpu.hres = hres_from_fields(hr1, hr2);
-
-  if (bit(val, 2) != 0) {
-    gpu.vres = VerticalRes::y480lines;
-  } else {
-    gpu.vres = VerticalRes::y240lines;
-  }
-
-  if (bit(val, 3) != 0) {
-    gpu.video_mode = VideoMode::pal;
-  } else {
-    gpu.video_mode = VideoMode::ntsc;
-  }
-
-  if (bit(val, 4) != 0) {
-    gpu.display_depth = DisplayDepth::d15bits;
-  } else {
-    gpu.display_depth = DisplayDepth::d24bits;
-  }
-
-  gpu.interlaced = bit(val, 5) != 0;
-
-  if (bit(val, 7) != 0) {
-    LOG_ERROR("Unsupported display mode 0x%x", val);
-    return -1;
-  }
-
-  return 0;
-}
-
-int gp1_display_vram_start(GPU &gpu, u32 val) {
-  // lsb ignored to be always aligned to a 16 bit pixel
-  gpu.display_vram_x_start = (val & 0b1111111110);
-  gpu.display_vram_y_start = bits_in_range(val, 10, 18);
-  return 0;
-}
-
-int gp1_display_horizontal_range(GPU &gpu, u32 val) {
-  gpu.display_horiz_start = bits_in_range(val, 0, 11);
-  gpu.display_horiz_end = bits_in_range(val, 12, 23);
-  return 0;
-}
-
-int gp1_display_vertical_range(GPU &gpu, u32 val) {
-  gpu.display_line_start = bits_in_range(val, 0, 9);
-  gpu.display_line_end = bits_in_range(val, 10, 19);
-  return 0;
-}
-
-static int gp1_display_enable(GPU &gpu, u32 val) {
-  gpu.display_disabled = bit(val, 0) != 0;
-  return 0;
-}
-
-static int gp1_ack_irq(GPU &gpu, u32 val) {
-  gpu.interrupt = false;
-  return 0;
-}
-
-static int gp1_reset_command_buffer(GPU &gpu, u32 val) {
-  clear(gpu.gp0_cmd_buf);
-  gpu.gp0_cmd_pending_words_count = 0;
-  gpu.gp0_mode = GP0mode::command;
-  return 0;
-}
-
-int GPU::gp1(u32 val) {
+int GPU::gp1(u32 val, Clock &clock) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch (opcode) {
   case 0x00:
-    return gp1_soft_reset(*this, val);
+    return gp1_soft_reset(*this, val, clock);
   case 0x01:
     return gp1_reset_command_buffer(*this, val);
   case 0x02:
@@ -442,9 +451,9 @@ int GPU::gp1(u32 val) {
   case 0x06:
     return gp1_display_horizontal_range(*this, val);
   case 0x07:
-    return gp1_display_vertical_range(*this, val);
+    return gp1_display_vertical_range(*this, val, clock);
   case 0x08:
-    return gp1_display_mode(*this, val);
+    return gp1_display_mode(*this, val, clock);
   default:
     LOG_ERROR("Unhandled GP1 command 0x%x", val);
     return -1;
@@ -468,15 +477,13 @@ u32 GPU::status() {
 
   val |= static_cast<u32>(texture_disable) << 15;
   val |= hres.into_status();
-
-  // HACK: need to emulate bit 13 or returning 1 here locks BIOS
-  // val |= static_cast<u32>(vres) << 19;
+  val |= static_cast<u32>(vres) << 19;
 
   val |= static_cast<u32>(video_mode) << 20;
   val |= static_cast<u32>(display_depth) << 21;
   val |= static_cast<u32>(interlaced) << 22;
   val |= static_cast<u32>(display_disabled) << 23;
-  val |= static_cast<u32>(interrupt) << 24;
+  val |= static_cast<u32>(gp0_interrupt) << 24;
 
   // REVIEW: we pretend GPU is always ready
 
@@ -489,10 +496,11 @@ u32 GPU::status() {
 
   val |= static_cast<u32>(dma_direction) << 29;
 
-  // REVIEW: bit 31 should change depending on the currently drawn line
-  // (whether it's even, odd or in the vblack apparently). we don't bother
-  // with that right now
-  val |= 0 << 31;
+  // Bit 31 is 1 if current displayed VRAM line is odd, 0 if it's even or if
+  // we're in the vblank
+  if (!in_vblank()) {
+    val |= static_cast<u32>(displayed_vram_line() & 1) << 31;
+  }
 
   u32 dma_request = 0;
   // REVIEW: following nocash spec here
@@ -521,7 +529,9 @@ u32 GPU::read() {
   return 0;
 }
 
-int GPU::load32(u32 &val, u32 index) {
+int GPU::load32(u32 &val, u32 index, Clock &clock) {
+  clock_sync(clock);
+
   switch (index) {
   case 0:
     val = read();
@@ -532,17 +542,173 @@ int GPU::load32(u32 &val, u32 index) {
   }
 
   LOG_ERROR("[FN:%s IND:%d] Unhandled", "GPU::load32", index);
+  assert(false);
   return -1;
 }
 
-int GPU::store32(u32 val, u32 index) {
+int GPU::store32(u32 val, u32 index, Clock &clock) {
+  clock_sync(clock);
+  
   switch (index) {
   case 0:
     return gp0(val);
   case 4:
-    return gp1(val);
+    return gp1(val, clock);
   }
 
   assert(false);
   return -1;
+}
+
+/// Return the number of GPU clock cycles in a line and number of lines in a
+/// frame (or field for interlaced output) depending on the configured video
+/// mode
+void GPU::vmode_timings(u16 &horizontal, u16 &vertical) {
+  // REVIEW: those timings are different from nocash
+  // The number of ticks per line is an estimate using the average line length
+  // recorded by the timer1 using the "hsync" clock source
+  if (video_mode == VideoMode::ntsc) {
+    horizontal = 3412;
+    vertical = 263;
+    return;
+  }
+
+  // pal
+  horizontal = 3404;
+  vertical = 314;
+}
+
+u64 GPU::gpu_to_cpu_clock_ratio() {
+  static constexpr f32 cpu_clock = 33.8685f;
+  // TODO: can be constexpr
+  f32 gpu_clock;
+
+  if (configured_hardware_video_mode == VideoMode::ntsc) {
+    gpu_clock = 53.69f;
+  } else {
+    gpu_clock = 53.20f;
+  }
+
+  // Clock ratio shifted 16bits to the left
+  return ((gpu_clock / cpu_clock) * static_cast<f32>(clock_ratio_frac));
+}
+
+void GPU::clock_sync(Clock &clock) {
+  u64 delta = clock.sync(PCIType::gpu);
+
+  delta = static_cast<u64>(gpu_clock_frac) + (delta * gpu_to_cpu_clock_ratio());
+
+  gpu_clock_frac = delta;
+
+  delta >>= 16;
+
+  // REVIEW: casting
+  u16 h, v;
+  vmode_timings(h, v);
+  u64 horiz = h;
+  u64 vert = v;
+
+  u64 line_tick = display_line_tick + delta;
+  u64 line = display_line + (line_tick / horiz);
+
+  display_line_tick = (line_tick % horiz);
+
+  if (line > vert) {
+    // New frame
+    if (interlaced) {
+      u64 nframes = line / vert;
+
+      if(((nframes + static_cast<u64>(field)) & 1) != 0) {
+	field = Field::top;
+      }
+      else {
+	field = Field::bottom;
+      }
+    }
+    
+    display_line = (line % vert);
+  } else {
+    display_line = line;
+  }
+
+  bool next_vblank_interrupt = in_vblank();
+  if(!vblank_interrupt && next_vblank_interrupt) {
+    // Rising edge of the vblank interupt, should trigger an interrupt in the
+    // controller
+    LOG_INFO("GPU interrupt");
+  }
+
+  if(vblank_interrupt && !next_vblank_interrupt) {
+    // End of vertical blanking
+    LOG_DEBUG("End of vblank, renderer->display()");
+    renderer->display();
+  }
+
+  vblank_interrupt = next_vblank_interrupt;
+
+  predict_next_clock_sync(clock);
+}
+
+bool GPU::in_vblank() {
+  return (display_line < display_line_start) ||
+         (display_line >= display_line_end);
+}
+
+void GPU::predict_next_clock_sync(Clock &clock) {
+  // REVIEW: casting
+  u16 h, v;
+  vmode_timings(h, v);
+  u64 horiz = h;
+  u64 vert = v;
+
+  u64 delta = 0;
+
+  // number of ticks to get to the start of the next line
+  delta += horiz - display_line_tick;
+
+  // NOTE: various -1 is because we're counting from line 0, without it we'd go
+  // one line too far
+  if (display_line >= display_line_end) {
+    // vblank at the end of frame. we want to sync at the end of the
+    // blanking at the beg of next frame
+
+    // number of ticks to get to the end of the frame
+    delta += (vert - display_line) * horiz;
+
+    // number of ticks to get to the end of vblank in the next frame
+    delta += (display_line_start - 1) * horiz;
+  } else if (display_line < display_line_start) {
+    // in vblank at the beg of frame. we want to sync at the end of the blanking
+    // for current frame
+    delta += (display_line_start - 1 - display_line) * horiz;
+  } else {
+    // in active video. we want to sync at the beg of the vert blanking period
+    delta += (display_line_end - 1 - display_line) * horiz;
+  }
+
+  // Convert delta in CPU clock periods
+  delta *= clock_ratio_frac;
+
+  // remove the current fractional cycle to be more accurate
+  delta -= gpu_clock_frac;
+
+  // divide by the ratio while always rounding up to make sure we're never
+  // triggered too early
+  u64 ratio = gpu_to_cpu_clock_ratio();
+  delta = (delta + ratio - 1) / ratio;
+
+  clock.set_alarm_after(PCIType::gpu, delta);
+}
+
+u16 GPU::displayed_vram_line() {
+  u16 offset;
+
+  if(interlaced) {
+    offset = display_line * 2 + static_cast<u16>(field);
+  }
+  else {
+    offset = display_line;
+  }
+
+  return (display_vram_y_start + offset) & 0x1ff;
 }

@@ -5,6 +5,12 @@
 #include <cassert>
 #include <cstdio>
 
+void PCI::clock_sync(Clock &clock) {
+  if(clock.alarmed(PCIType::gpu)) {
+    gpu.clock_sync(clock);
+  }
+}
+
 static u32 mask_addr_to_region(u32 addr) {
   static const u32 region_mask[8] = {// KUSEG: 2048MB
                                      0xffffffff, 0xffffffff, 0xffffffff,
@@ -18,6 +24,7 @@ static u32 mask_addr_to_region(u32 addr) {
 
   return addr & region_mask[addr >> 29];
 }
+
 
 constexpr int ignore_load_with(u32 &val, const char *fn, u32 addr, u32 index,
                                const char *msg, u32 with) {
@@ -34,7 +41,7 @@ constexpr int ignore_store(StoreType val, const char *fn, u32 addr, u32 index,
   return 0;
 }
 
-int PCI::load32(u32 &val, u32 addr) {
+int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::load32";
   u32 index;
 
@@ -93,7 +100,7 @@ int PCI::load32(u32 &val, u32 addr) {
   }
 
   if (!GPU::range.offset(index, addr)) {
-    return gpu.load32(val, index);
+    return gpu.load32(val, index, clock);
   }
 
   LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
@@ -237,7 +244,7 @@ int PCI::load8(u32 &val, u32 addr) {
   return -1;
 }
 
-int PCI::store32(u32 val, u32 addr) {
+int PCI::store32(u32 val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::store32";
   u32 index;
   
@@ -299,7 +306,7 @@ int PCI::store32(u32 val, u32 addr) {
   }
 
   if (!GPU::range.offset(index, addr)) {
-    return gpu.store32(val, index);
+    return gpu.store32(val, index, clock);
   }
 
   LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
@@ -460,3 +467,22 @@ int PCI::store8(u8 val, u32 addr) {
   return -1;
 }
 
+int PCI::load_instruction(Instruction &ins, u32 addr) {
+  static const char *fn = "PCI::load_instruction";
+  u32 index;
+
+  addr = mask_addr_to_region(addr);
+
+  if (!Bios::range.offset(index, addr)) {
+    ins.data = memory::load32(bios.data, index);
+    return 0;
+  }
+
+  if (!RAM::range.offset(index, addr)) {
+    ins.data = memory::load32(ram.data, index);
+    return 0;
+  }
+
+  LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
+  return -1;
+}

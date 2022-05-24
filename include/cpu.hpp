@@ -53,6 +53,8 @@ struct CPU {
 
   ICacheLine icache[256]; // 4KB i-cache
 
+  Clock clock;
+
   CPU(const PCI &pci) = delete;
   PCI &operator=(const PCI &pci) = delete;
 
@@ -69,7 +71,7 @@ struct CPU {
 
   int next();
   int dump_and_next();
-  int fetch(u32 &instruction_data, u32 addr);
+  int fetch(Instruction &ins, u32 addr);
   int decode_execute(const Instruction &instruction);
   int decode_execute_sub(const Instruction &instruction);
   int decode_execute_cop0(const Instruction &instruction);

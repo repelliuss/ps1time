@@ -10,7 +10,7 @@
 int main() {
   // TODO: handle fixed path
   static constexpr const char *bios_path = "res/bios/SCPH1001.BIN";
-  
+
   Bios bios;
   if (file::read_file(bios.data, bios_path, Bios::size)) {
     return -1;
@@ -18,7 +18,7 @@ int main() {
 
   Renderer renderer(true);
   renderer.create_window_and_context();
-  if(renderer.compile_shaders_link_program() < 0) {
+  if (renderer.compile_shaders_link_program() < 0) {
     return -1;
   }
 
@@ -27,7 +27,7 @@ int main() {
     return -1;
   }
 
-  PCI pci(std::move(bios), &renderer);
+  PCI pci(std::move(bios), &renderer, VideoMode::ntsc);
   CPU cpu = CPU(pci);
 
   int status = 0;

@@ -11,7 +11,7 @@
 void CPU::dump() {
   Instruction ins;
 
-  fetch(ins.data, cur_pc);
+  fetch(ins, cur_pc);
 
   printf("PC: %08x\n", cur_pc);
 
@@ -46,6 +46,8 @@ int CPU::dump_and_next() {
 }
 
 int CPU::next() {
+  pci.clock_sync(clock);
+  
   // save cur pc here in case of expceiton for EPC
   cur_pc = pc;
 
@@ -55,7 +57,7 @@ int CPU::next() {
   }
   
   Instruction instruction;
-  int cpu_fetch_result = fetch(instruction.data, cur_pc);
+  int cpu_fetch_result = fetch(instruction, cur_pc);
   // REVIEW: instruction fetch may be said to be always succeed
   assert(cpu_fetch_result == 0);
 
@@ -86,12 +88,13 @@ int CPU::next() {
   return 0;
 }
 
-int CPU::fetch(u32 &instruction_data, u32 addr) {
+int CPU::fetch(Instruction &ins, u32 addr) {
   CacheCtrl &cc = pci.cache_ctrl;
   bool is_kseg1 = (addr & 0xe0000000) == 0xa0000000;
 
   if (is_kseg1 || !cc.icache_enabled()) {
-    return pci.load32(instruction_data, addr);
+    clock.tick(4);
+    return pci.load_instruction(ins, addr);
   }
 
   u32 tag = addr & 0xfffff000;
@@ -101,16 +104,19 @@ int CPU::fetch(u32 &instruction_data, u32 addr) {
 
   if (line.tag() != tag || line.first_valid_index() > index) {
     // cache miss, fetch icache line
-    
+    clock.tick(3);
     line.update(addr);
+    
     for (int i = index; i < 4; ++i) {
+      clock.tick(1);
+      
       // REVIEW: instruction fetch may be said to be always succeed
-      status |= pci.load32(line.instruction[i].data, addr);
+      status |= pci.load_instruction(line.instruction[i], addr);
       addr += 4;
     }
   }
 
-  instruction_data = line.instruction[index].data;
+  ins = line.instruction[index];
   return status;
 }
 
@@ -137,7 +143,7 @@ int CPU::store32(u32 val, u32 addr) {
     return handle_cache(val, addr);
   }
 
-  return pci.store32(val, addr);
+  return pci.store32(val, addr, clock);
 }
 
 int CPU::handle_cache(u32 val, u32 addr) {
@@ -262,6 +268,8 @@ int CPU::decode_execute_sub(const Instruction &instruction) {
 }
 
 int CPU::decode_execute(const Instruction &instruction) {
+  clock.tick(1);
+  
   switch (instruction.opcode()) {
   case 0b000000:
     return decode_execute_sub(instruction);
@@ -517,7 +525,7 @@ int CPU::lw(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  return pci.load32(pending_load.val, addr);
+  return pci.load32(pending_load.val, addr, clock);
 }
 
 int CPU::sltu(const Instruction &i) {
@@ -904,7 +912,7 @@ int CPU::lwl(const Instruction &i) {
   pending_load.reg_index = i.rt();
 
   u32 aligned_word;
-  int status = pci.load32(aligned_word, aligned_addr);
+  int status = pci.load32(aligned_word, aligned_addr, clock);
   if (status < 0)
     return status;
 
@@ -937,7 +945,7 @@ int CPU::lwr(const Instruction &i) {
   pending_load.reg_index = i.rt();
 
   u32 aligned_word;
-  int status = pci.load32(aligned_word, aligned_addr);
+  int status = pci.load32(aligned_word, aligned_addr, clock);
   if (status < 0)
     return status;
 
@@ -965,7 +973,7 @@ int CPU::swl(const Instruction &i) {
   u32 cur_reg_val = reg(i.rt());
 
   u32 cur_mem_val;
-  int status = pci.load32(cur_mem_val, aligned_addr);
+  int status = pci.load32(cur_mem_val, aligned_addr, clock);
   if (status < 0)
     return status;
 
@@ -994,7 +1002,7 @@ int CPU::swr(const Instruction &i) {
   u32 cur_reg_val = reg(i.rt());
 
   u32 cur_mem_val;
-  int status = pci.load32(cur_mem_val, aligned_addr);
+  int status = pci.load32(cur_mem_val, aligned_addr, clock);
   if (status < 0)
     return status;
 

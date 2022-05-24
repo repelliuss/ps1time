@@ -50,7 +50,6 @@ struct DMA : HeapByteData {
     // +0 to get base address
     // TODO: may be useless, see make_channel
     enum struct Type : u32 {
-      none = 0xdeadbeef,
       MdecIn = 0x00,
       MdecOut = 0x10,
       GPU = 0x20,
@@ -71,7 +70,7 @@ struct DMA : HeapByteData {
     // can be optimized with storing only before loading with a function like
     // sync_to_dma()
 
-    Type type = Type::none;
+    Type type;
     u32 base_address;
 
     /// [0, 15] contains block_size [16, 31] contains block_count
