@@ -125,6 +125,24 @@ struct Timers {
   static constexpr u32 size = 48;
   static constexpr Range range = {0x1f801100, 0x1f801130};
   u8 data[size];
+
+  struct Reg {
+    struct Pixel {
+      static constexpr u32 current = 0x00;
+      static constexpr u32 mode = 0x04;
+      static constexpr u32 target = 0x08;
+    };
+    struct HSync {
+      static constexpr u32 current = 0x10;
+      static constexpr u32 mode = 0x14;
+      static constexpr u32 target = 0x18;
+    };
+    struct Eighth {
+      static constexpr u32 current = 0x20;
+      static constexpr u32 mode = 0x24;
+      static constexpr u32 target = 0x28;
+    };
+  };
 };
 
 // Peripheral Component Interconnect
