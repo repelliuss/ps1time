@@ -26,7 +26,7 @@ static u32 mask_addr_to_region(u32 addr) {
 }
 
 
-constexpr int ignore_load_with(u32 &val, const char *fn, u32 addr, u32 index,
+int ignore_load_with(u32 &val, const char *fn, u32 addr, u32 index,
                                const char *msg, u32 with) {
   LOG_DEBUG("[FN:%s ADDR:0x%08x IND:%d] Ignored %s", fn, addr, index, msg);
   val = with;

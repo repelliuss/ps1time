@@ -212,10 +212,6 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
 
     u32 remaining_size = header >> 24;
 
-    if(remaining_size > 0) {
-      LOG_INFO("LinkedList transfer, block size: %d", remaining_size);
-    }
-
     while (remaining_size > 0) {
       aligned_addr = (aligned_addr + 4) &
              ram_addr_align_mask(); // REVIEW: masking should'nt bee needed
@@ -236,8 +232,6 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
     // mednafen only checks MSB but this is not valid addr
     // maybe hardware does the same gotta check
   } while ((header & 0x800000) == 0);
-
-  LOG_INFO("LinkedList transfer end");
 
   chview::finalize_transfer(chview);
 
