@@ -7,7 +7,7 @@
 
 void PCI::clock_sync(Clock &clock) {
   if(clock.alarmed(PCIType::gpu)) {
-    gpu.clock_sync(clock);
+    gpu.clock_sync(clock, irq);
   }
 }
 
@@ -88,7 +88,7 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    return ignore_load_with(val, fn, addr, index, "IRQ", 0);
+    return irq.load32(val, index);
   }
 
   if (!Timers::range.offset(index, addr)) {
@@ -100,7 +100,7 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   }
 
   if (!GPU::range.offset(index, addr)) {
-    return gpu.load32(val, index, clock);
+    return gpu.load32(val, index, clock, irq);
   }
 
   LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
@@ -153,7 +153,7 @@ int PCI::load16(u32 &val, u32 addr) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    return ignore_load_with(val, fn, addr, index, "IRQ", 0);
+    return irq.load16(val, index);
   }
 
   if (!Timers::range.offset(index, addr)) {
@@ -294,7 +294,7 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "IRQ");
+    return irq.store32(val, index);
   }
 
   if (!Timers::range.offset(index, addr)) {
@@ -306,7 +306,7 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
   }
 
   if (!GPU::range.offset(index, addr)) {
-    return gpu.store32(val, index, clock);
+    return gpu.store32(val, index, clock, irq);
   }
 
   LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
@@ -365,7 +365,7 @@ int PCI::store16(u16 val, u32 addr) {
   }
 
   if (!IRQ::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "IRQ");
+    return irq.store16(val, index);
   }
 
   if (!Timers::range.offset(index, addr)) {

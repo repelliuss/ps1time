@@ -38,8 +38,6 @@ void CPU::dump() {
   printf("\n\n");
 }
 
-bool CPU::cache_isolated() { return (cop0.regs[COP0::Reg::sr] & 0x10000) != 0; }
-
 int CPU::dump_and_next() {
   dump();
   return next();
@@ -73,10 +71,16 @@ int CPU::next() {
   in_delay_slot = branch_ocurred;
   branch_ocurred = false;
 
-  int cpu_exec_result = decode_execute(instruction);
-  if (cpu_exec_result) {
-    dump();
-    return -1;
+  if (cop0.interrupt_pending()) {
+    LOG_DEBUG("Interrupt pending");
+    exception(Cause::interrupt);
+  }
+  else {
+    int cpu_exec_result = decode_execute(instruction);
+    if (cpu_exec_result) {
+      dump();
+      return -1;
+    }
   }
 
   {
@@ -121,7 +125,7 @@ int CPU::fetch(Instruction &ins, u32 addr) {
 }
 
 int CPU::store8(u8 val, u32 addr) {
-  if (cache_isolated()) {
+  if (cop0.cache_isolated()) {
     LOG_ERROR("[VAL:0x%08x] Unsupported write while cache is isolated", val);
     return -1;
   }
@@ -130,7 +134,7 @@ int CPU::store8(u8 val, u32 addr) {
 }
 
 int CPU::store16(u16 val, u32 addr) {
-  if (cache_isolated()) {
+  if (cop0.cache_isolated()) {
     LOG_ERROR("[VAL:0x%08x] Unsupported write while cache is isolated", val);
     return -1;
   }
@@ -139,7 +143,7 @@ int CPU::store16(u16 val, u32 addr) {
 }
 
 int CPU::store32(u32 val, u32 addr) {
-  if (cache_isolated()) {
+  if (cop0.cache_isolated()) {
     return handle_cache(val, addr);
   }
 
@@ -359,38 +363,8 @@ int CPU::decode_execute(const Instruction &instruction) {
 
 // TODO: need to push/pop SR if nested exceptions are wanted
 int CPU::exception(const Cause &cause) {
-  // Shift bits [5:0] of `SR` two places to the left. Those bits
-  // are three pairs of Interrupt Enable/User Mode bits behaving
-  // like a stack 3 entries deep. Entering an exception pushes a
-  // pair of zeroes by left shifting the stack which disables
-  // interrupts and puts the CPU in kernel mode. The original
-  // third entry is discarded (it's up to the kernel to handle
-  // more than two recursive exception levels).
-  u32 mode = cop0.regs[COP0::Reg::sr] & 0x3f;
-  cop0.regs[COP0::Reg::sr] &= ~0x3f;
-  cop0.regs[COP0::Reg::sr] |= (mode << 2) & 0x3f;
-
-  // Update `CAUSE` register with the exception code (bits
-  // [6:2])
-  cop0.regs[COP0::Reg::cause] = static_cast<u32>(cause) << 2;
-
-  // Save current instruction address in `EPC`
-  cop0.regs[COP0::Reg::epc] = cur_pc;
-
-  if (in_delay_slot) {
-    cop0.regs[COP0::Reg::epc] -= 4;
-    cop0.regs[COP0::Reg::cause] |= 1 << 31;
-  }
-
-  // NOTE: nocash says BEV=1 exception vectors doesn't happen
-  // Exception handler address depends on the 'BEV' bit
-  if ((cop0.regs[COP0::Reg::sr] & (1 << 22)) != 0) {
-    pc = 0xbfc00180;
-  } else {
-    pc = 0x80000080;
-  }
+  pc = cop0.enter_exception(cause, cur_pc, in_delay_slot);
   next_pc = pc + 4;
-
   return 0;
 }
 
@@ -444,7 +418,7 @@ int CPU::ins_or(const Instruction &i) {
 }
 
 int CPU::mtc0(const Instruction &i) {
-  u32 cop_r = i.rd();
+  int cop_r = i.rd();
   u32 val = reg(i.rt());
 
   switch (cop_r) {
@@ -478,7 +452,7 @@ int CPU::mtc0(const Instruction &i) {
   }
 
   // NOTE: cop0 doesn't have in reg out reg concept because of load delay
-  cop0.regs[cop_r] = val;
+  cop0.set(static_cast<COP0::Reg>(cop_r), val);
 
   return 0;
 }
@@ -595,7 +569,7 @@ int CPU::beq(const Instruction &i) {
 
 int CPU::mfc0(const Instruction &i) {
 
-  u32 cop_r = i.rd();
+  int cop_r = i.rd();
   u32 val;
 
   switch (cop_r) {
@@ -603,7 +577,7 @@ int CPU::mfc0(const Instruction &i) {
   case COP0::Reg::cause:
   case COP0::Reg::epc:
     pending_load.reg_index = i.rt();
-    pending_load.val = cop0.regs[cop_r];
+    pending_load.val = cop0.get(static_cast<COP0::Reg>(cop_r));
     return 0;
   }
 
@@ -802,10 +776,7 @@ int CPU::rfe(const Instruction &i) {
     return -1;
   }
 
-  u32 mode = cop0.regs[COP0::Reg::sr] & 0x3f;
-  cop0.regs[COP0::Reg::sr] &= ~0x3f;
-  cop0.regs[COP0::Reg::sr] |= mode >> 2;
-
+  cop0.rfe();
   return 0;
 }
 

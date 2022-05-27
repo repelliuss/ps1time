@@ -301,7 +301,7 @@ int gp1_dma_direction(GPU &gpu, u32 val) {
 }
 
 
-int gp1_display_mode(GPU &gpu, u32 val, Clock &clock) {
+int gp1_display_mode(GPU &gpu, u32 val, Clock &clock, IRQ &irq) {
   u8 hr1 = bits_in_range(val, 0, 1);
   u8 hr2 = bit(val, 6);
   gpu.hres = hres_from_fields(hr1, hr2);
@@ -334,7 +334,7 @@ int gp1_display_mode(GPU &gpu, u32 val, Clock &clock) {
     return -1;
   }
 
-  gpu.clock_sync(clock);
+  gpu.clock_sync(clock, irq);
 
   return 0;
 }
@@ -352,10 +352,10 @@ int gp1_display_horizontal_range(GPU &gpu, u32 val) {
   return 0;
 }
 
-int gp1_display_vertical_range(GPU &gpu, u32 val, Clock &clock) {
+int gp1_display_vertical_range(GPU &gpu, u32 val, Clock &clock, IRQ &irq) {
   gpu.display_line_start = bits_in_range(val, 0, 9);
   gpu.display_line_end = bits_in_range(val, 10, 19);
-  gpu.clock_sync(clock);
+  gpu.clock_sync(clock, irq);
   return 0;
 }
 
@@ -376,7 +376,7 @@ static int gp1_reset_command_buffer(GPU &gpu, u32 val) {
   return 0;
 }
 
-int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock) {
+int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock, IRQ &irq) {
   gpu.page_base_x = 0;
   gpu.page_base_y = 0;
   gpu.semi_transparency = 0;
@@ -424,7 +424,7 @@ int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock) {
   gp1_reset_command_buffer(gpu, 0);
   gp1_ack_irq(gpu, 0);
 
-  gpu.clock_sync(clock);
+  gpu.clock_sync(clock, irq);
 
   // TODO: should also clear the command FIFO
   // TODO: should also invalidate GPU cache
@@ -432,12 +432,12 @@ int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock) {
   return 0;
 }
 
-int GPU::gp1(u32 val, Clock &clock) {
+int GPU::gp1(u32 val, Clock &clock, IRQ &irq) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch (opcode) {
   case 0x00:
-    return gp1_soft_reset(*this, val, clock);
+    return gp1_soft_reset(*this, val, clock, irq);
   case 0x01:
     return gp1_reset_command_buffer(*this, val);
   case 0x02:
@@ -451,9 +451,9 @@ int GPU::gp1(u32 val, Clock &clock) {
   case 0x06:
     return gp1_display_horizontal_range(*this, val);
   case 0x07:
-    return gp1_display_vertical_range(*this, val, clock);
+    return gp1_display_vertical_range(*this, val, clock, irq);
   case 0x08:
-    return gp1_display_mode(*this, val, clock);
+    return gp1_display_mode(*this, val, clock, irq);
   default:
     LOG_ERROR("Unhandled GP1 command 0x%x", val);
     return -1;
@@ -529,8 +529,8 @@ u32 GPU::read() {
   return 0;
 }
 
-int GPU::load32(u32 &val, u32 index, Clock &clock) {
-  clock_sync(clock);
+int GPU::load32(u32 &val, u32 index, Clock &clock, IRQ &irq) {
+  clock_sync(clock, irq);
 
   switch (index) {
   case 0:
@@ -546,14 +546,14 @@ int GPU::load32(u32 &val, u32 index, Clock &clock) {
   return -1;
 }
 
-int GPU::store32(u32 val, u32 index, Clock &clock) {
-  clock_sync(clock);
-  
+int GPU::store32(u32 val, u32 index, Clock &clock, IRQ &irq) {
+  clock_sync(clock, irq);
+
   switch (index) {
   case 0:
     return gp0(val);
   case 4:
-    return gp1(val, clock);
+    return gp1(val, clock, irq);
   }
 
   assert(false);
@@ -593,7 +593,7 @@ u64 GPU::gpu_to_cpu_clock_ratio() {
   return ((gpu_clock / cpu_clock) * static_cast<f32>(clock_ratio_frac));
 }
 
-void GPU::clock_sync(Clock &clock) {
+void GPU::clock_sync(Clock &clock, IRQ &irq) {
   u64 delta = clock.sync(PCIType::gpu);
 
   delta = static_cast<u64>(gpu_clock_frac) + (delta * gpu_to_cpu_clock_ratio());
@@ -618,24 +618,23 @@ void GPU::clock_sync(Clock &clock) {
     if (interlaced) {
       u64 nframes = line / vert;
 
-      if(((nframes + static_cast<u64>(field)) & 1) != 0) {
-	field = Field::top;
-      }
-      else {
-	field = Field::bottom;
+      if (((nframes + static_cast<u64>(field)) & 1) != 0) {
+        field = Field::top;
+      } else {
+        field = Field::bottom;
       }
     }
-    
+
     display_line = (line % vert);
   } else {
     display_line = line;
   }
 
   bool next_vblank_interrupt = in_vblank();
-  if(!vblank_interrupt && next_vblank_interrupt) {
+  if (!vblank_interrupt && next_vblank_interrupt) {
     // Rising edge of the vblank interupt, should trigger an interrupt in the
     // controller
-    LOG_INFO("GPU interrupt");
+    irq.request(Interrupt::vblank);
   }
 
   if(vblank_interrupt && !next_vblank_interrupt) {
