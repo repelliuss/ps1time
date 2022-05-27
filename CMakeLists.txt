@@ -6,7 +6,6 @@ project(ps1emu VERSION 0.0 LANGUAGES CXX)
 # list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/SDL2)
 
 aux_source_directory(src SRC_LIST)
-set(INCLUDE_DIRS include)
 
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 add_executable(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})

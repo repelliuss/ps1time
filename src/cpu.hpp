@@ -1,35 +1,14 @@
 #pragma once
 
-#include "types.hpp"
-#include "pci.hpp"
-#include "instruction.hpp"
 #include "cache.hpp"
-
-struct COP0 {
-  // REVIEW: setting all to 0 may not be accurate i.e. sr-$12. though sr is being set to mask ISOLATE_CACHE
-  // REVIEW: nocash says 32-63 is N/A should I remove?
-  u32 regs[64] = {0};
-
-  struct Reg {
-    static constexpr int sr = 12;
-    static constexpr int cause = 13;
-    static constexpr int epc = 14;
-  };
-};
+#include "cop0.hpp"
+#include "instruction.hpp"
+#include "pci.hpp"
+#include "types.hpp"
 
 struct PendingLoad {
   u32 reg_index;
   u32 val;
-};
-
-enum struct Cause : u32 {
-  syscall = 0x8,
-  overflow = 0xc,
-  unaligned_load_addr = 0x4,
-  unaligned_store_addr = 0x5,
-  brek = 0x9, //break
-  unimplemented_coprocessor = 0xb,
-  illegal_instruction = 0xa,
 };
 
 struct CPU {
@@ -58,13 +37,13 @@ struct CPU {
   CPU(const PCI &pci) = delete;
   PCI &operator=(const PCI &pci) = delete;
 
-  CPU(PCI &pci) : pci(pci) {
+  CPU(PCI &pci) : pci(pci), cop0(pci.irq) {
     in_regs[0] = out_regs[0] = 0;
     // TODO: remove this initializations
     for (int i = 1; i < 32; ++i) {
       out_regs[i] = in_regs[i] = 0xdeadbeef;
     }
-    memset(cop0.regs, 0, sizeof(u32) * 64);
+    memset(cop0.data, 0, sizeof(u32) * 64);
   }
 
   void dump();
@@ -84,7 +63,6 @@ struct CPU {
 
   void set_reg(u32 index, u32 val);
   u32 reg(u32 index);
-  bool cache_isolated();
   int handle_cache(u32 val, u32 addr);
 
   int store8(u8 val, u32 addr);

@@ -10,6 +10,7 @@
 #include "clock.hpp"
 #include "log.hpp"
 #include "instruction.hpp"
+#include "interrupt.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -94,16 +95,6 @@ struct Expansion1 : HeapByteData {
 struct Expansion2 {
   static constexpr u32 size = 66;
   static constexpr Range range = {0x1f802000, 0x1f802042};
-  u8 data[size];
-};
-
-// NOTE: writes are ignored for these registers and return 0
-// IRQ stands for interrupt request
-// 0x1f801070 register is for: Interrupt Status 
-// 0x1f801074 register is for: Interrupt Mask
-struct IRQ {
-  static constexpr u32 size = 8;
-  static constexpr Range range = {0x1f801070, 0x1f801078};
   u8 data[size];
 };
 

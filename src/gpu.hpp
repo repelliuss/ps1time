@@ -5,6 +5,7 @@
 #include "range.hpp"
 #include "renderer.hpp"
 #include "clock.hpp"
+#include "interrupt.hpp"
 
 enum struct GP0mode {
   command,
@@ -218,15 +219,15 @@ struct GPU {
   u32 status();
   u32 read();
   int gp0(u32 val);
-  int gp1(u32 val, Clock &clock);
+  int gp1(u32 val, Clock &clock, IRQ &irq);
 
-  int load32(u32 &val, u32 index, Clock &clock);
-  int store32(u32 val, u32 index, Clock &clock);
+  int load32(u32 &val, u32 index, Clock &clock, IRQ &irq);
+  int store32(u32 val, u32 index, Clock &clock, IRQ &irq);
 
   // GPU timings
   void vmode_timings(u16 &horizontal, u16 &vertical);
   u64 gpu_to_cpu_clock_ratio();
-  void clock_sync(Clock &clock);
+  void clock_sync(Clock &clock, IRQ &irq);
   bool in_vblank();
   void predict_next_clock_sync(Clock &clock);
 
