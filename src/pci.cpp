@@ -302,7 +302,7 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
   }
   
   if (!DMA::range.offset(index, addr)) {
-    return dma.store32(val, index);
+    return dma.store32(val, index, irq);
   }
 
   if (!GPU::range.offset(index, addr)) {

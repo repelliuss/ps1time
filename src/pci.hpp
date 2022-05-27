@@ -5,12 +5,10 @@
 #include "heap_byte_data.hpp"
 #include "dma.hpp"
 #include "ram.hpp"
-#include "gpu.hpp"
 #include "peripheral.hpp"
 #include "clock.hpp"
 #include "log.hpp"
 #include "instruction.hpp"
-#include "interrupt.hpp"
 
 #include <cstdlib>
 #include <cstring>

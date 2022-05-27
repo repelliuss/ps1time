@@ -5,6 +5,8 @@
 
 #include <assert.h>
 
+// TODO: redesign dma
+
 namespace chview {
 namespace {
 
@@ -67,8 +69,8 @@ int transfer_size(u32 &size, const DMA::ChannelView &chview) {
 }
 
 void finalize_transfer(DMA::ChannelView &chview) {
-  bit_clear(chview.channel_control, 24);
-  bit_clear(chview.channel_control, 28);
+  bit_clear(chview.channel_control, 24); //enable bit
+  bit_clear(chview.channel_control, 28); //trigger bit
 
   // TODO: Need to set the more values here for other fields, particularly
   // interrupts (according to simias)
@@ -187,8 +189,6 @@ int transfer_manual(const DMA &dma, DMA::ChannelView &chview) {
     }
   }
 
-  chview::finalize_transfer(chview);
-
   return 0;
 }
 
@@ -232,8 +232,6 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
     // mednafen only checks MSB but this is not valid addr
     // maybe hardware does the same gotta check
   } while ((header & 0x800000) == 0);
-
-  chview::finalize_transfer(chview);
 
   return 0;
 }
@@ -286,8 +284,6 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
     }
   }
 
-  chview::finalize_transfer(chview);
-
   return 0;
 }
 
@@ -309,7 +305,9 @@ DMA::DMA(RAM &ram, GPU &gpu) : HeapByteData(size, 0), ram(ram), gpu(gpu) {
 }
 
 // is an interrupt active?
-bool DMA::irq_active() { return bit(data[Reg::interrupt], 31); }
+bool DMA::irq_active() {
+  return data[Reg::interrupt + 3] >> 7; //bit 31
+}
 
 // logic for 31th bit in dma interrupt register
 static u8 extract_irq_active(u32 interrupt) {
@@ -326,8 +324,9 @@ static u8 extract_irq_active(u32 interrupt) {
   return forced_interrupt || (master_allows && (channels_has_irq != 0));
 }
 
-void DMA::set_interrupt(u32 val) {
-  u8 irq = extract_irq_active(val);
+void DMA::set_interrupt(u32 val, IRQ &irq) {
+  bool prev_irq = irq_active();
+
   u8 channels_interrupt_ack_status =
       bits_in_range(data[Reg::interrupt], 24, 30);
   u8 new_channels_interrupt_ack_status = bits_in_range(val, 24, 30);
@@ -335,12 +334,15 @@ void DMA::set_interrupt(u32 val) {
   // writing 1 to ack flags resets it
   channels_interrupt_ack_status &= ~new_channels_interrupt_ack_status;
 
-  LOG_INFO("DMA IRQ en: %s 0x%x", bit(val, 23) != 0 ? "true" : "false", val);
-
-  u8 last_byte = (irq << 7) | channels_interrupt_ack_status;
+  u8 new_irq = extract_irq_active(val);
+  u8 last_byte = (new_irq << 7) | channels_interrupt_ack_status;
   bits_copy_to_range(val, 24, 31, last_byte);
 
   memory::store32(data, Reg::interrupt, val);
+
+  if (!prev_irq && irq_active()) {
+    irq.request(Interrupt::dma);
+  }
 }
 
 // TODO: may be needless as addr is already being masked each iteration
@@ -368,10 +370,29 @@ DMA::ChannelView DMA::make_channel_view(u32 dma_reg_index) {
   };
 }
 
-int DMA::try_transfer(ChannelView &chview) {
+int DMA::try_transfer(ChannelView &chview, IRQ &irq) {
   if (chview::transfer_active(chview)) {
     int status = transfer(*this, chview);
-    if(status < 0) return status;
+    if (status < 0)
+      return status;
+
+    {
+      chview::finalize_transfer(chview);
+
+      // TODO: redesign dma transfer interrupt
+
+      bool prev_irq = irq_active();
+      u32 new_interrupt = memory::load32(data, Reg::interrupt);
+
+      bit_or(new_interrupt, 24 + static_cast<u32>(chview.type) / 16,
+             bit(new_interrupt, 16 + static_cast<u32>(chview.type) / 16));
+      memory::store32(data, Reg::interrupt, new_interrupt);
+
+      if (!prev_irq && extract_irq_active(new_interrupt)) {
+        irq.request(Interrupt::dma);
+      }
+    }
+
     chview::sync(chview);
   }
 
@@ -414,10 +435,10 @@ int DMA::load32(u32 &val, u32 index) {
   return -1;
 }
 
-int DMA::store32(u32 val, u32 index) {
+int DMA::store32(u32 val, u32 index, IRQ &irq) {
   switch (index) {
   case DMA::Reg::interrupt:
-    set_interrupt(val);
+    set_interrupt(val, irq);
     return 0;
 
   case DMA::Reg::mdecin_base_address:
@@ -439,7 +460,7 @@ int DMA::store32(u32 val, u32 index) {
   case DMA::Reg::otc_channel_control:
     memory::store32(data, index, val);
     DMA::ChannelView channel = make_channel_view(index);
-    return try_transfer(channel);
+    return try_transfer(channel, irq);
   }
 
   memory::store32(data, index, val);

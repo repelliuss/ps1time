@@ -49,6 +49,7 @@ struct DMA : HeapByteData {
     // +4 to get block control
     // +0 to get base address
     // TODO: may be useless, see make_channel
+    // NOTE: values are important as they are used in computation
     enum struct Type : u32 {
       MdecIn = 0x00,
       MdecOut = 0x10,
@@ -93,14 +94,14 @@ struct DMA : HeapByteData {
 
   //reg::interrupt
   bool irq_active();
-  void set_interrupt(u32 val);
+  void set_interrupt(u32 val, IRQ &irq);
 
   //reg::*_base_address
   void set_base_addr(u32 base_address_reg_index, u32 val);
 
   //may only be called reg::.*_channel_control when written
-  int try_transfer(ChannelView &channel);
+  int try_transfer(ChannelView &channel, IRQ &irq);
 
   int load32(u32 &val, u32 index);
-  int store32(u32 val, u32 index);
+  int store32(u32 val, u32 index, IRQ &irq);
 };

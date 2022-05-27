@@ -4,8 +4,9 @@
 #include "range.hpp"
 #include "log.hpp"
 
-enum Interrupt {
+enum struct Interrupt : u32 {
   vblank = 0,
+  dma = 3,
 };
 
 // NOTE: writes are ignored for these registers and return 0
@@ -22,7 +23,9 @@ struct IRQ {
 
   constexpr bool active() { return (status & mask) != 0; }
   constexpr void ack(u16 ack) { status &= ack; }
-  constexpr void request(Interrupt interrupt) { status |= 1 << interrupt; }
+  constexpr void request(Interrupt interrupt) {
+    status |= 1 << static_cast<u32>(interrupt);
+  }
 
   constexpr int load32(u32 &val, u32 index) {
     switch (index) {

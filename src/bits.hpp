@@ -33,6 +33,12 @@ constexpr void bit_set(u32 &data, unsigned at) {
   data |= 1U << at;
 }
 
+constexpr void bit_or(u32 &data, unsigned at, unsigned bit) {
+  assert(at >= 0 && at < 32);
+  assert((bit & 1U) == bit);
+  data |= bit << at;
+}
+
 constexpr void bit_clear(u32 &data, unsigned at) {
   assert(at >= 0 && at < 32);
   data &= ~(1U << at);

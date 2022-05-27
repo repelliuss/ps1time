@@ -1,9 +1,9 @@
 #pragma once
 
 #include "cache.hpp"
-#include "cop0.hpp"
 #include "instruction.hpp"
 #include "pci.hpp"
+#include "cop0.hpp"
 #include "types.hpp"
 
 struct PendingLoad {
