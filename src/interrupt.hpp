@@ -6,6 +6,7 @@
 
 enum struct Interrupt : u32 {
   vblank = 0,
+  cdrom = 2,
   dma = 3,
 };
 
@@ -50,6 +51,7 @@ struct IRQ {
   constexpr int set_mask(u16 val) {
     u16 m = val;
     m = m & ~(1 << static_cast<int>(Interrupt::vblank));
+    m = m & ~(1 << static_cast<int>(Interrupt::cdrom));
     m = m & ~(1 << static_cast<int>(Interrupt::dma));
 
     if (m != 0) {

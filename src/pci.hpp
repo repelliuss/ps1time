@@ -10,6 +10,7 @@
 #include "log.hpp"
 #include "instruction.hpp"
 #include "timers.hpp"
+#include "cdrom.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -111,6 +112,7 @@ struct PCI {
   IRQ irq;
   Timers timers;
   DMA dma;
+  CDROM cdrom;
 
   PCI(Bios &&bios, Renderer *renderer, VideoMode configured_hardware_video_mode)
       : bios(bios), gpu(renderer, configured_hardware_video_mode),
