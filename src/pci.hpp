@@ -11,6 +11,7 @@
 #include "instruction.hpp"
 #include "timers.hpp"
 #include "cdrom.hpp"
+#include "padmemcard.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -29,13 +30,6 @@ struct Bios {
 struct RamSize {
   static constexpr u32 size = 4;
   static constexpr Range range = {0x1f801060, 0x1f801064};
-  u8 data[size];
-};
-
-// This is not our ram size, but a register that is being set in hw_regs area
-struct JOYmemcard {
-  static constexpr u32 size = 32;
-  static constexpr Range range = {0x1f801040, 0x1f801060};
   u8 data[size];
 };
 
@@ -120,6 +114,7 @@ struct PCI {
   Timers timers;
   DMA dma;
   CDROM cdrom;
+  PadMemCard pad_mem_card;
 
   PCI(Bios &&bios, Renderer *renderer, VideoMode configured_hardware_video_mode)
       : bios(bios), gpu(renderer, configured_hardware_video_mode),
@@ -134,9 +129,9 @@ struct PCI {
 
   int load32(u32 &val, u32 addr, Clock &clock);
   int load16(u32 &val, u32 addr, Clock &clock);
-  int load8(u32 &val, u32 addr);
+  int load8(u32 &val, u32 addr, Clock &clock);
 
   int store32(u32 val, u32 addr, Clock &clock);
   int store16(u16 val, u32 addr, Clock &clock);
-  int store8(u8 val, u32 addr);
+  int store8(u8 val, u32 addr, Clock &clock);
 };

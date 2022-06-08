@@ -232,7 +232,9 @@ struct GPU {
   u16 displayed_vram_line();
 
   FractionalCycle dotclock_period();
-  int dotclock_phase(FractionalCycle fc);
+  int dotclock_phase(FractionalCycle &fc);
   FractionalCycle hsync_period();
   FractionalCycle hsync_phase();
 };
+
+static constexpr f32 CPU_FREQ_MHZ = 33.8685f;

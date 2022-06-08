@@ -283,6 +283,10 @@ int GPU::gp0(u32 val) {
       gp0_cmd_pending_words_count = 9;
       gp0_cmd = gp0_quad_texture_blend_opaque;
       break;
+    case 0x2f:
+      gp0_cmd_pending_words_count = 9;
+      gp0_cmd = gp0_quad_texture_blend_opaque;
+      break;
     case 0x2d:
       gp0_cmd_pending_words_count = 9;
       gp0_cmd = gp0_quad_texture_raw_opaque;
@@ -661,7 +665,6 @@ void GPU::vmode_timings(u16 &horizontal, u16 &vertical) {
 }
 
 FractionalCycle GPU::gpu_to_cpu_clock_ratio() {
-  static constexpr f32 cpu_clock = 33.8685f;
   // TODO: can be constexpr
   f32 gpu_clock;
 
@@ -672,7 +675,7 @@ FractionalCycle GPU::gpu_to_cpu_clock_ratio() {
   }
 
   // Clock ratio shifted 16bits to the left
-  return FractionalCycle::from_f32(gpu_clock / cpu_clock);
+  return FractionalCycle::from_f32(gpu_clock / CPU_FREQ_MHZ);
 }
 
 u8 dotclock_divider(HorizontalRes hres) {

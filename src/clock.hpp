@@ -17,6 +17,7 @@ struct Clock {
     timer0,
     timer1,
     timer2,
+    pad_memcard,
     SIZE,
   };
 

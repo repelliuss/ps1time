@@ -133,7 +133,7 @@ int CPU::store8(u8 val, u32 addr) {
     return -1;
   }
 
-  return pci.store8(val, addr);
+  return pci.store8(val, addr, clock);
 }
 
 int CPU::store16(u16 val, u32 addr) {
@@ -570,7 +570,7 @@ int CPU::lb(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  int status = pci.load8(pending_load.val, addr);
+  int status = pci.load8(pending_load.val, addr, clock);
   pending_load.val = static_cast<i8>(pending_load.val);
   return status;
 }
@@ -644,7 +644,7 @@ int CPU::lbu(const Instruction &i) {
 
   pending_load.reg_index = i.rt();
 
-  return pci.load8(pending_load.val, addr);
+  return pci.load8(pending_load.val, addr, clock);
 }
 
 int CPU::jalr(const Instruction &i) {

@@ -2,6 +2,7 @@
 #include "data.hpp"
 #include "intrinsic.hpp"
 #include "log.hpp"
+#include <SDL.h>
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
@@ -133,7 +134,7 @@ int Renderer::has_errors() {
 
 Renderer::Renderer(bool debug) {
   SDL_SetMainReady();
-  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);

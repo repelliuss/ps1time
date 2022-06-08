@@ -10,6 +10,10 @@ void PCI::clock_sync(Clock &clock) {
     gpu.clock_sync(clock, irq);
   }
 
+  if (clock.alarmed(Clock::Host::pad_memcard)) {
+    pad_mem_card.clock_sync(clock, irq);
+  }
+
   timers.clock_sync(clock, irq);
 }
 
@@ -44,6 +48,8 @@ constexpr int ignore_store(StoreType val, const char *fn, u32 addr, u32 index,
 }
 
 int PCI::load32(u32 &val, u32 addr, Clock &clock) {
+  clock.tick(5);
+  
   static const char *fn = "PCI::load32";
   u32 index;
 
@@ -69,8 +75,8 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
     return -1;
   }
 
-  if (!JOYmemcard::range.offset(index, addr)) {
-    return ignore_load_with(val, fn, addr, index, "PIO", ~0);
+  if (!PadMemCard::range.offset(index, addr)) {
+    return pad_mem_card.load32(val, index, clock, irq);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -119,6 +125,8 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   }
 
 int PCI::load16(u32 &val, u32 addr, Clock &clock) {
+  clock.tick(5);
+  
   static const char *fn = "PCI::load16";
   u32 index;
 
@@ -144,8 +152,8 @@ int PCI::load16(u32 &val, u32 addr, Clock &clock) {
     return -1;
   }
 
-  if (!JOYmemcard::range.offset(index, addr)) {
-    return ignore_load_with(val, fn, addr, index, "PIO", ~0);
+  if (!PadMemCard::range.offset(index, addr)) {
+    return pad_mem_card.load16(val, index, clock, irq);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -194,7 +202,9 @@ int PCI::load16(u32 &val, u32 addr, Clock &clock) {
   return -1;
 }
 
-int PCI::load8(u32 &val, u32 addr) {
+int PCI::load8(u32 &val, u32 addr, Clock &clock) {
+  clock.tick(5);
+  
   static const char *fn = "PCI::load8";
   u32 index;
 
@@ -219,8 +229,8 @@ int PCI::load8(u32 &val, u32 addr) {
     return -1;
   }
 
-  if (!JOYmemcard::range.offset(index, addr)) {
-    return ignore_load_with(val, fn, addr, index, "PIO", ~0);
+  if (!PadMemCard::range.offset(index, addr)) {
+    return pad_mem_card.load8(val, index, clock, irq);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -296,8 +306,8 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
     return ignore_store(val, fn, addr, index, "RamSize");
   }
 
-  if (!JOYmemcard::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "JOYmemcard");
+  if (!PadMemCard::range.offset(index, addr)) {
+    return pad_mem_card.store32(val, index, clock, irq);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -378,8 +388,8 @@ int PCI::store16(u16 val, u32 addr, Clock &clock) {
     return -1;
   }
 
-  if (!JOYmemcard::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "JOYmemcard");
+  if (!PadMemCard::range.offset(index, addr)) {
+    return pad_mem_card.store16(val, index, clock, irq);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -433,7 +443,7 @@ int PCI::store16(u16 val, u32 addr, Clock &clock) {
   return -1;
 }
 
-int PCI::store8(u8 val, u32 addr) {
+int PCI::store8(u8 val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::store8";
   u32 index;
 
@@ -461,8 +471,8 @@ int PCI::store8(u8 val, u32 addr) {
     return -1;
   }
 
-  if (!JOYmemcard::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "JOYmemcard");
+  if (!PadMemCard::range.offset(index, addr)) {
+    return pad_mem_card.store8(val, index, clock, irq);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
