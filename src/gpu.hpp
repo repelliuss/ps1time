@@ -7,6 +7,8 @@
 #include "clock.hpp"
 #include "interrupt.hpp"
 
+struct Timers;
+
 enum struct GP0mode {
   command,
   img_load,
@@ -199,13 +201,9 @@ struct GPU {
   /// True when VBLANK interrupt is high
   bool vblank_interrupt = false;
 
-  /// NOTE: Use 16bits for the fractional part of the clock ratio to get good
-  /// precision
-  static constexpr u64 clock_ratio_frac = 0x10000;
-
   /// Fractional GPU cycle remainder resulting from the CPU clock/GPU clock time
   /// conversion
-  u16 gpu_clock_frac = 0;
+  u16 gpu_clock_phase = 0;
 
   /// Currently displayed video output line
   u16 display_line = 0;
@@ -219,17 +217,22 @@ struct GPU {
   u32 status();
   u32 read();
   int gp0(u32 val);
-  int gp1(u32 val, Clock &clock, IRQ &irq);
+  int gp1(u32 val, Timers *timers, Clock &clock, IRQ &irq);
 
   int load32(u32 &val, u32 index, Clock &clock, IRQ &irq);
-  int store32(u32 val, u32 index, Clock &clock, IRQ &irq);
+  int store32(u32 val, u32 index, Timers *timers, Clock &clock, IRQ &irq);
 
   // GPU timings
   void vmode_timings(u16 &horizontal, u16 &vertical);
-  u64 gpu_to_cpu_clock_ratio();
+  FractionalCycle gpu_to_cpu_clock_ratio();
   void clock_sync(Clock &clock, IRQ &irq);
   bool in_vblank();
   void predict_next_clock_sync(Clock &clock);
 
   u16 displayed_vram_line();
+
+  FractionalCycle dotclock_period();
+  FractionalCycle dotclock_phase();
+  FractionalCycle hsync_period();
+  FractionalCycle hsync_phase();
 };

@@ -1,6 +1,7 @@
 #include "gpu.hpp"
 #include "intrinsic.hpp"
 #include "log.hpp"
+#include "timers.hpp"
 
 #include <stdio.h>
 
@@ -432,12 +433,15 @@ int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock, IRQ &irq) {
   return 0;
 }
 
-int GPU::gp1(u32 val, Clock &clock, IRQ &irq) {
+int GPU::gp1(u32 val, Timers *timers, Clock &clock, IRQ &irq) {
   u32 opcode = bits_in_range(val, 24, 31);
 
   switch (opcode) {
-  case 0x00:
-    return gp1_soft_reset(*this, val, clock, irq);
+  case 0x00: {
+    int status = gp1_soft_reset(*this, val, clock, irq);
+    timers->video_timings_changed(*this, clock, irq);
+    return status;
+  } break;
   case 0x01:
     return gp1_reset_command_buffer(*this, val);
   case 0x02:
@@ -453,7 +457,11 @@ int GPU::gp1(u32 val, Clock &clock, IRQ &irq) {
   case 0x07:
     return gp1_display_vertical_range(*this, val, clock, irq);
   case 0x08:
-    return gp1_display_mode(*this, val, clock, irq);
+    {
+    int status = gp1_display_mode(*this, val, clock, irq);
+    timers->video_timings_changed(*this, clock, irq);
+    return status;
+  } break;
   default:
     LOG_ERROR("Unhandled GP1 command 0x%x", val);
     return -1;
@@ -546,14 +554,14 @@ int GPU::load32(u32 &val, u32 index, Clock &clock, IRQ &irq) {
   return -1;
 }
 
-int GPU::store32(u32 val, u32 index, Clock &clock, IRQ &irq) {
+int GPU::store32(u32 val, u32 index, Timers *timers, Clock &clock, IRQ &irq) {
   clock_sync(clock, irq);
 
   switch (index) {
   case 0:
     return gp0(val);
   case 4:
-    return gp1(val, clock, irq);
+    return gp1(val, timers, clock, irq);
   }
 
   assert(false);
@@ -578,7 +586,7 @@ void GPU::vmode_timings(u16 &horizontal, u16 &vertical) {
   vertical = 314;
 }
 
-u64 GPU::gpu_to_cpu_clock_ratio() {
+FractionalCycle GPU::gpu_to_cpu_clock_ratio() {
   static constexpr f32 cpu_clock = 33.8685f;
   // TODO: can be constexpr
   f32 gpu_clock;
@@ -590,15 +598,71 @@ u64 GPU::gpu_to_cpu_clock_ratio() {
   }
 
   // Clock ratio shifted 16bits to the left
-  return ((gpu_clock / cpu_clock) * static_cast<f32>(clock_ratio_frac));
+  return FractionalCycle::from_f32(gpu_clock / cpu_clock);
+}
+
+u8 dotclock_divider(HorizontalRes hres) {
+  u8 hr1 = (hres.val >> 1) & 0x3;
+  u8 hr2 = (hres.val & 1) != 0;
+
+  if (hr2) {
+    return 7;
+  }
+  else {
+    switch(hr1) {
+    case 0:
+      return 10;
+    case 1:
+      return 8;
+    case 2:
+      return 5;
+    case 3:
+      return 4;
+    default:
+      LOG_CRITICAL("impossible dclock_divider value %d", hr1);
+      assert("impossible dclock_divider value");
+      return -1;
+    }
+  }
+}
+
+FractionalCycle GPU::dotclock_period() {
+  FractionalCycle gpu_clock_period = gpu_to_cpu_clock_ratio();
+  u8 divider = dotclock_divider(this->hres);
+  u64 period = gpu_clock_period.fixed_point_cycle * divider;
+
+  return FractionalCycle::from_fixed_point(period);
+}
+
+FractionalCycle GPU::dotclock_phase() {
+  return FractionalCycle::from_cycles(gpu_clock_phase);
+}
+
+FractionalCycle GPU::hsync_period() {
+  u16 ticks_per_line, t;
+  vmode_timings(ticks_per_line, t);
+
+  FractionalCycle line_len = FractionalCycle::from_cycles(ticks_per_line);
+
+  return line_len.divide(gpu_to_cpu_clock_ratio());
+}
+
+FractionalCycle GPU::hsync_phase() {
+  FractionalCycle phase = FractionalCycle::from_cycles(display_line_tick);
+  FractionalCycle clock_phase =
+      FractionalCycle::from_fixed_point(gpu_clock_phase);
+  phase = phase.add(clock_phase);
+
+  return phase.multiply(gpu_to_cpu_clock_ratio());
 }
 
 void GPU::clock_sync(Clock &clock, IRQ &irq) {
-  u64 delta = clock.sync(PCIType::gpu);
+  u64 delta = clock.sync(Clock::Host::gpu);
 
-  delta = static_cast<u64>(gpu_clock_frac) + (delta * gpu_to_cpu_clock_ratio());
+  delta = static_cast<u64>(gpu_clock_phase) +
+          (delta * gpu_to_cpu_clock_ratio().fixed_point_cycle);
 
-  gpu_clock_frac = delta;
+  gpu_clock_phase = delta;
 
   delta >>= 16;
 
@@ -686,17 +750,17 @@ void GPU::predict_next_clock_sync(Clock &clock) {
   }
 
   // Convert delta in CPU clock periods
-  delta *= clock_ratio_frac;
+  delta <<= FractionalCycle::fractional_bits();
 
   // remove the current fractional cycle to be more accurate
-  delta -= gpu_clock_frac;
+  delta -= gpu_clock_phase;
 
   // divide by the ratio while always rounding up to make sure we're never
   // triggered too early
-  u64 ratio = gpu_to_cpu_clock_ratio();
+  u64 ratio = gpu_to_cpu_clock_ratio().fixed_point_cycle;
   delta = (delta + ratio - 1) / ratio;
 
-  clock.set_alarm_after(PCIType::gpu, delta);
+  clock.set_alarm_after(Clock::Host::gpu, delta);
 }
 
 u16 GPU::displayed_vram_line() {

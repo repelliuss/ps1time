@@ -6,7 +6,7 @@
 #include <cstdio>
 
 void PCI::clock_sync(Clock &clock) {
-  if(clock.alarmed(PCIType::gpu)) {
+  if (clock.alarmed(Clock::Host::gpu)) {
     gpu.clock_sync(clock, irq);
   }
 }
@@ -92,7 +92,7 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   }
 
   if (!Timers::range.offset(index, addr)) {
-    return ignore_load_with(val, fn, addr, index, "Timers", 0);
+    return timers.load32(val, index, clock, irq);
   }
   
   if (!DMA::range.offset(index, addr)) {
@@ -107,7 +107,7 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   return -1;
 }
 
-int PCI::load16(u32 &val, u32 addr) {
+int PCI::load16(u32 &val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::load16";
   u32 index;
 
@@ -157,8 +157,7 @@ int PCI::load16(u32 &val, u32 addr) {
   }
 
   if (!Timers::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Timers");
-    return -1;
+    return timers.load16(val, index, clock, irq);
   }
 
   if (!DMA::range.offset(index, addr)) {
@@ -298,7 +297,7 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
   }
 
   if (!Timers::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "Timers");
+    return timers.store32(val, index, clock, irq, gpu);
   }
   
   if (!DMA::range.offset(index, addr)) {
@@ -306,14 +305,14 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
   }
 
   if (!GPU::range.offset(index, addr)) {
-    return gpu.store32(val, index, clock, irq);
+    return gpu.store32(val, index, &timers, clock, irq);
   }
 
   LOG_ERROR("[FN:%s ADDR:0x%08x VAL:0x%08x] Unhandled", fn, addr, val);
   return -1;
 }
 
-int PCI::store16(u16 val, u32 addr) {
+int PCI::store16(u16 val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::store16";
   u32 index;
   
@@ -369,7 +368,7 @@ int PCI::store16(u16 val, u32 addr) {
   }
 
   if (!Timers::range.offset(index, addr)) {
-    return ignore_store(val, fn, addr, index, "Timers");
+    return timers.store16(val, index, clock, irq, gpu);
   }
   
   if (!DMA::range.offset(index, addr)) {

@@ -9,6 +9,7 @@
 #include "clock.hpp"
 #include "log.hpp"
 #include "instruction.hpp"
+#include "timers.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -96,30 +97,6 @@ struct Expansion2 {
   u8 data[size];
 };
 
-struct Timers {
-  static constexpr u32 size = 48;
-  static constexpr Range range = {0x1f801100, 0x1f801130};
-  u8 data[size];
-
-  struct Reg {
-    struct Pixel {
-      static constexpr u32 current = 0x00;
-      static constexpr u32 mode = 0x04;
-      static constexpr u32 target = 0x08;
-    };
-    struct HSync {
-      static constexpr u32 current = 0x10;
-      static constexpr u32 mode = 0x14;
-      static constexpr u32 target = 0x18;
-    };
-    struct Eighth {
-      static constexpr u32 current = 0x20;
-      static constexpr u32 mode = 0x24;
-      static constexpr u32 target = 0x28;
-    };
-  };
-};
-
 // Peripheral Component Interconnect
 struct PCI {
   Bios bios;
@@ -147,10 +124,10 @@ struct PCI {
   int load_instruction(Instruction &ins, u32 addr);
 
   int load32(u32 &val, u32 addr, Clock &clock);
-  int load16(u32 &val, u32 addr);
+  int load16(u32 &val, u32 addr, Clock &clock);
   int load8(u32 &val, u32 addr);
 
   int store32(u32 val, u32 addr, Clock &clock);
-  int store16(u16 val, u32 addr);
+  int store16(u16 val, u32 addr, Clock &clock);
   int store8(u8 val, u32 addr);
 };

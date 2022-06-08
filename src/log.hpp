@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-// #define LOG_CURRENT_DEPTH LOG_DEPTH_MAX
+#define LOG_CURRENT_DEPTH LOG_DEPTH_MAX
 
 #define LOG_DEPTH_CRITICAL 10
 #define LOG_DEPTH_ERROR 20
