@@ -98,7 +98,7 @@ struct Clock {
 
   constexpr bool alarmed(Host who) { return get(who).should_alarm(now); }
 
-  constexpr void tick(u64 delta) { now = next_delta_time(delta); }
+  constexpr void tick(u64 delta) { now = next_delta_time(delta / 2.5f); }
 };
 
 /// Fixed point representation of a cycle counter

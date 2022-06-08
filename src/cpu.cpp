@@ -97,14 +97,14 @@ int CPU::next() {
 
 int CPU::fetch(Instruction &ins, u32 addr) {
   CacheCtrl &cc = pci.cache_ctrl;
-  bool is_kseg1 = (addr & 0xe0000000) == 0xa0000000;
+  bool not_cached = addr >= 0xa0000000;
 
-  if (is_kseg1 || !cc.icache_enabled()) {
+  if (not_cached || !cc.icache_enabled()) {
     clock.tick(4);
     return pci.load_instruction(ins, addr);
   }
 
-  u32 tag = addr & 0xfffff000;
+  u32 tag = addr & 0x7ffff000;
   ICacheLine &line = icache[(addr >> 4) & 0xff];
   u32 index = (addr >> 2) & 0b11;
   int status = 0;
