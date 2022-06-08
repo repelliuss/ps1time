@@ -32,6 +32,13 @@ struct RamSize {
   u8 data[size];
 };
 
+// This is not our ram size, but a register that is being set in hw_regs area
+struct JOYmemcard {
+  static constexpr u32 size = 32;
+  static constexpr Range range = {0x1f801040, 0x1f801060};
+  u8 data[size];
+};
+
 // NOTE: this area lies in hardware registers or I/O map
 // NOTE: simias docs say this is SYS_CONTROL 
 // REVIEW: simias docs say these are the only important ones for now 

@@ -282,6 +282,10 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
     return ignore_store(val, fn, addr, index, "RamSize");
   }
 
+  if (!JOYmemcard::range.offset(index, addr)) {
+    return ignore_store(val, fn, addr, index, "JOYmemcard");
+  }
+
   if (!CacheCtrl::range.offset(index, addr)) {
     cache_ctrl.val = val;
     return 0;
@@ -358,6 +362,10 @@ int PCI::store16(u16 val, u32 addr, Clock &clock) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
               "RamSize");
     return -1;
+  }
+
+  if (!JOYmemcard::range.offset(index, addr)) {
+    return ignore_store(val, fn, addr, index, "JOYmemcard");
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -437,6 +445,10 @@ int PCI::store8(u8 val, u32 addr) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
               "RamSize");
     return -1;
+  }
+
+  if (!JOYmemcard::range.offset(index, addr)) {
+    return ignore_store(val, fn, addr, index, "JOYmemcard");
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
