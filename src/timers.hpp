@@ -161,7 +161,7 @@ struct Timer {
 
   Timer(Clock::Host instance) : instance(instance) {}
 
-  void reconfigure(GPU &gpu, Clock &clock);
+  int reconfigure(GPU &gpu, Clock &clock);
 
   int clock_sync(Clock &clock, IRQ &irq) {
     u64 delta = clock.sync(instance);

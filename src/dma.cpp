@@ -124,10 +124,17 @@ constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr) {
   return (addr - 4) & ram_addr_align_mask();
 }
 
+inline u32 get_gpu_channel_transfer_value(u32 remaining_size, u32 addr) {
+  LOG_DEBUG("DMA GPU READ");
+  return 0;
+}
+
 transfer_value_generator get_generator(DMA::ChannelView::Type type) {
   switch (type) {
   case DMA::ChannelView::Type::OTC:
     return get_otc_channel_transfer_value;
+  case DMA::ChannelView::Type::GPU:
+    return get_gpu_channel_transfer_value;
   default:
     LOG_ERROR("Unhandled DMA source port %d", type);
     return nullptr;

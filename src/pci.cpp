@@ -69,6 +69,10 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
     return -1;
   }
 
+  if (!JOYmemcard::range.offset(index, addr)) {
+    return ignore_load_with(val, fn, addr, index, "PIO", ~0);
+  }
+
   if (!CacheCtrl::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "CacheCtrl");
     return -1;
@@ -112,7 +116,7 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
 
   LOG_ERROR("[FN:%s ADDR:0x%08x] Unhandled", fn, addr);
   return -1;
-}
+  }
 
 int PCI::load16(u32 &val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::load16";
@@ -138,6 +142,10 @@ int PCI::load16(u32 &val, u32 addr, Clock &clock) {
   if (!RamSize::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "RamSize");
     return -1;
+  }
+
+  if (!JOYmemcard::range.offset(index, addr)) {
+    return ignore_load_with(val, fn, addr, index, "PIO", ~0);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {
@@ -209,6 +217,10 @@ int PCI::load8(u32 &val, u32 addr) {
   if (!RamSize::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "RamSize");
     return -1;
+  }
+
+  if (!JOYmemcard::range.offset(index, addr)) {
+    return ignore_load_with(val, fn, addr, index, "PIO", ~0);
   }
 
   if (!CacheCtrl::range.offset(index, addr)) {

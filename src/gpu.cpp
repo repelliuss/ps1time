@@ -193,6 +193,68 @@ int gp0_quad_texture_blend_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
   return gpu.renderer->put_quad(positions, colors);
 }
 
+int gp0_rect_texture_raw_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  Position top_left = pos_from_gp0(buf.data[1]);
+  Position size = pos_from_gp0(buf.data[3]);
+
+  Position positions[4] = {
+      top_left,
+      {.x = static_cast<GLshort>(top_left.x + size.x), .y = top_left.y},
+      {.x = top_left.x, .y = static_cast<GLshort>(top_left.y + size.y)},
+      {.x = static_cast<GLshort>(top_left.x + size.x),
+       .y = static_cast<GLshort>(top_left.y + size.y)},
+  };
+
+  Color colors[4] = {
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[0]),
+      color_from_gp0(buf.data[0]),
+  };
+
+  return gpu.renderer->put_quad(positions, colors);
+}
+
+int gp0_quad_texture_raw_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  Position positions[4] = {
+    pos_from_gp0(buf.data[1]),
+    pos_from_gp0(buf.data[3]),
+    pos_from_gp0(buf.data[5]),
+    pos_from_gp0(buf.data[7]),
+  };
+
+  Color colors[4] = {
+      color(0x80, 0x00, 0x00),
+      color(0x80, 0x00, 0x00),
+      color(0x80, 0x00, 0x00),
+      color(0x80, 0x00, 0x00),
+  };
+
+  return gpu.renderer->put_quad(positions, colors);
+}
+
+int gp0_fill_rect(GPU &gpu, const GPUcommandBuffer &buf) {
+  Position top_left = pos_from_gp0(buf.data[1]);
+  Position size = pos_from_gp0(buf.data[2]);
+
+  Position positions[4] = {
+      top_left,
+      {.x = static_cast<GLshort>(top_left.x + size.x), .y = top_left.y},
+      {.x = top_left.x, .y = static_cast<GLshort>(top_left.y + size.y)},
+      {.x = static_cast<GLshort>(top_left.x + size.x),
+       .y = static_cast<GLshort>(top_left.y + size.y)},
+  };
+
+  Color colors[4] = {
+    color_from_gp0(buf.data[0]),
+    color_from_gp0(buf.data[0]),
+    color_from_gp0(buf.data[0]),
+    color_from_gp0(buf.data[0]),
+  };
+
+  return gpu.renderer->put_quad(positions, colors);
+}
+
 int GPU::gp0(u32 val) {
   u32 opcode = bits_in_range(val, 24, 31);
 
@@ -209,6 +271,10 @@ int GPU::gp0(u32 val) {
       gp0_cmd_pending_words_count = 1;
       gp0_cmd = gp0_clear_cache;
       break;
+    case 0x02:
+      gp0_cmd_pending_words_count = 3;
+      gp0_cmd = gp0_fill_rect;
+      break;
     case 0x28:
       gp0_cmd_pending_words_count = 5;
       gp0_cmd = gp0_quad_mono_opaque;
@@ -217,6 +283,10 @@ int GPU::gp0(u32 val) {
       gp0_cmd_pending_words_count = 9;
       gp0_cmd = gp0_quad_texture_blend_opaque;
       break;
+    case 0x2d:
+      gp0_cmd_pending_words_count = 9;
+      gp0_cmd = gp0_quad_texture_raw_opaque;
+      break;
     case 0x30:
       gp0_cmd_pending_words_count = 6;
       gp0_cmd = gp0_triangle_shaded_opaque;
@@ -224,6 +294,10 @@ int GPU::gp0(u32 val) {
     case 0x38:
       gp0_cmd_pending_words_count = 8;
       gp0_cmd = gp0_quad_shaded_opaque;
+      break;
+    case 0x65:
+      gp0_cmd_pending_words_count = 4;
+      gp0_cmd = gp0_rect_texture_raw_opaque;
       break;
     case 0xa0:
       gp0_cmd_pending_words_count = 3;
@@ -634,8 +708,10 @@ FractionalCycle GPU::dotclock_period() {
   return FractionalCycle::from_fixed_point(period);
 }
 
-FractionalCycle GPU::dotclock_phase() {
-  return FractionalCycle::from_cycles(gpu_clock_phase);
+int GPU::dotclock_phase(FractionalCycle &fc) {
+  // fc = FractionalCycle::from_cycles(gpu_clock_phase);
+  LOG_ERROR("GPU dotclock phase not implemented");
+  return -1;
 }
 
 FractionalCycle GPU::hsync_period() {

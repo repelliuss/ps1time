@@ -5,6 +5,7 @@
 #include "pci.hpp"
 #include "cop0.hpp"
 #include "types.hpp"
+#include "gte.hpp"
 
 struct PendingLoad {
   u32 reg_index;
@@ -14,6 +15,7 @@ struct PendingLoad {
 struct CPU {
   PCI &pci;
   COP0 cop0;
+  GTE gte;
 
   u32 cur_pc;			// pc for current executed instruction
   u32 pc = 0xbfc00000;		// cur_pc + 4 in decode_execute
@@ -135,4 +137,5 @@ struct CPU {
   int swc1(const Instruction &instruction);
   int swc2(const Instruction &instruction);
   int swc3(const Instruction &instruction);
+  int ctc2(const Instruction &instruction);
 };

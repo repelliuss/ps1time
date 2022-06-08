@@ -201,7 +201,21 @@ int CPU::decode_execute_cop1(const Instruction &instruction) {
   return exception(Cause::unimplemented_coprocessor);
 }
 
+int CPU::ctc2(const Instruction &instruction) {
+  u32 cpu_r = instruction.rt();
+  u32 cop_r = instruction.rd();
+
+  u32 val = reg(cpu_r);
+
+  return gte.set_control(cop_r, val);
+}
+
 int CPU::decode_execute_cop2(const Instruction &instruction) {
+  switch(instruction.rs()) {
+  case 0b00110:
+    return ctc2(instruction);
+  }
+
   LOG_ERROR("Unhandled GTE instruction: 0x%08x", instruction.data);
   return -1;
 }

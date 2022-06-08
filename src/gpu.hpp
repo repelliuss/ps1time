@@ -232,7 +232,7 @@ struct GPU {
   u16 displayed_vram_line();
 
   FractionalCycle dotclock_period();
-  FractionalCycle dotclock_phase();
+  int dotclock_phase(FractionalCycle fc);
   FractionalCycle hsync_period();
   FractionalCycle hsync_phase();
 };

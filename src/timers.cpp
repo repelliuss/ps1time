@@ -6,7 +6,7 @@ int Timers::video_timings_changed(GPU &gpu, Clock &clock, IRQ &irq) {
     Timer &timer = timers[i];
     if (timer.needs_gpu()) {
       status |= timer.clock_sync(clock, irq);
-      timer.reconfigure(gpu, clock);
+      status |= timer.reconfigure(gpu, clock);
     }
   }
 
@@ -57,7 +57,7 @@ int Timers::store16(u16 val, u32 offset, Clock &clock, IRQ &irq, GPU &gpu) {
     timer.set_counter(val);
     break;
   case 4:
-    status = timer.set_mode(val);
+    status |= timer.set_mode(val);
     break;
   case 8:
     timer.set_target(val);
@@ -71,7 +71,7 @@ int Timers::store16(u16 val, u32 offset, Clock &clock, IRQ &irq, GPU &gpu) {
     gpu.clock_sync(clock, irq);
   }
 
-  timer.reconfigure(gpu, clock);
+  status |= timer.reconfigure(gpu, clock);
 
   return status;
 }
@@ -98,7 +98,9 @@ int Timers::clock_sync(Clock &clock, IRQ &irq) {
   return 0;
 }
 
-void Timer::reconfigure(GPU &gpu, Clock &clock) {
+int Timer::reconfigure(GPU &gpu, Clock &clock) {
+  int status = 0;
+  
   switch (clock_source.purpose(instance)) {
   case Purpose::sys_clock:
     period = FractionalCycle::from_cycles(1);
@@ -112,7 +114,7 @@ void Timer::reconfigure(GPU &gpu, Clock &clock) {
 
   case Purpose::gpu_dot_clock:
     period = gpu.dotclock_period();
-    phase = gpu.dotclock_phase();
+    status |= gpu.dotclock_phase(phase);
     break;
 
   case Purpose::gpu_hsync:
@@ -122,4 +124,6 @@ void Timer::reconfigure(GPU &gpu, Clock &clock) {
   }
 
   predict_next_sync(clock);
+
+  return status;
 }
