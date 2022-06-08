@@ -174,7 +174,7 @@ int main() {
   PCI pci(std::move(bios), &renderer, VideoMode::ntsc);
   CPU cpu = CPU(pci);
 
-  Profile *profile = &pci.pad_mem_card.pad1.profile;
+  Profile *profile = &cpu.pci.pad_mem_card.pad1.profile;
 
   int status = 0;
   while (!status) {

@@ -98,6 +98,9 @@ struct PadMemCard {
 
   Profile* pad_profiles[2] = {pad1.get_profile(), pad2.get_profile()};
 
+  /// Bus state machine
+  Bus bus = {.state = Bus::State::idle};
+
   int clock_sync(Clock &clock, IRQ &irq) {
     u64 delta = clock.sync(Clock::Host::gpu);
 
@@ -137,8 +140,25 @@ struct PadMemCard {
 	    interrupt = true;
 	  }
 
+          // TODO: THIS DSR TIMING IS IMPORTANT
+	  // NOTE: by simias:
+          // The DSR pulse is generated purely by the
+          // controller without any input from the
+          // console. Therefore the actual length of the
+          // pulse changes from controller to
+          // controller. I have two seemingly identical
+          // SCPH-1080 controllers, one pulses the DSR
+          // line for ~100CPU cycles while the other one
+          // is slightly faster at around ~90 CPU
+          // cycles.
+
+          // XXX Because of timing inaccuracies
+          // throrough the emulator I can't use the
+          // proper timing otherwise the BIOS attempts
+          // to ack the interrupt while DSR is still
+          // active.
 	  bus.state = Bus::State::dsr;
-	  bus.data.dsr.delay = 10;
+          bus.data.dsr.delay = 4;
 	}
 	else {
 	  bus.state = Bus::State::idle;
@@ -164,9 +184,6 @@ struct PadMemCard {
     return 0;
   }
 
-  /// Bus state machine
-  Bus bus = {.state = Bus::State::idle};
-
   int send_command(u8 cmd, Clock &clock) {
     if (!tx_en) {
       // It should be stored in the FIFO and sent when tx_en is
@@ -180,20 +197,20 @@ struct PadMemCard {
       LOG_DEBUG("Gamepad command {:x} while bus is busy!", cmd);
     }
 
-    Pair p;
+    Pair pad_out;
 
     if (select) {
       switch (target) {
       case Target::PadMemCard1:
-        p = pad1.send_command(cmd);
+        pad_out = pad1.send_command(cmd);
         break;
 
       case Target::PadMemCard2:
-        p = pad2.send_command(cmd);
+        pad_out = pad2.send_command(cmd);
         break;
       }
     } else {
-      p = {0xff, false};
+      pad_out = {0xff, false};
     }
 
     // XXX Handle `mode` as well, especially the "baudrate reload
@@ -202,7 +219,9 @@ struct PadMemCard {
     u64 tx_duration = 8 * baud_div;
 
     bus.state = Bus::State::transfer;
-    bus.data.transfer = {response, dsr, tx_duration};
+    bus.data.transfer.response = pad_out.response;
+    bus.data.transfer.dsr = pad_out.dsr;
+    bus.data.transfer.delay = tx_duration;
 
     clock.set_alarm_after(Clock::Host::pad_memcard, tx_duration);
 
@@ -219,7 +238,7 @@ struct PadMemCard {
     stat |= 0 << 3;
     // XXX Since we don't emulate joystick timings properly we're
     // going to pretend the ack line (active low) is always high.
-    stat |= 0 << 7;
+    stat |= static_cast<u32>(dsr) << 7;
     stat |= static_cast<u32>(interrupt) << 9;
     // XXX needs to add the baudrate counter in bits [31:11];
     stat |= 0 << 11;
