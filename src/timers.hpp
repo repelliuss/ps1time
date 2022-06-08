@@ -210,6 +210,7 @@ struct Timer {
     r |= static_cast<u16>(free_run);
     r |= static_cast<u16>(sync) << 1;
     r |= static_cast<u16>(target_wrap) << 3;
+    r |= static_cast<u16>(target_irq) << 4;
     r |= static_cast<u16>(wrap_irq) << 5;
     r |= static_cast<u16>(repeat_irq) << 6;
     r |= static_cast<u16>(pulse_irq) << 7;
