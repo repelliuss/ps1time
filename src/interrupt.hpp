@@ -47,14 +47,28 @@ struct IRQ {
     return status;
   }
 
+  constexpr int set_mask(u16 val) {
+    u16 m = val;
+    m = m & ~(1 << static_cast<int>(Interrupt::vblank));
+    m = m & ~(1 << static_cast<int>(Interrupt::dma));
+
+    if (m != 0) {
+      LOG_ERROR("Unsupported interrupt %04x\n", m);
+      return -1;
+    }
+
+    mask = val;
+
+    return 0;
+  }
+
   constexpr int store32(u32 val, u32 index) {
-    switch(index) {
+    switch (index) {
     case 0:
       ack(val);
       return 0;
     case 4:
-      mask = val;
-      return 0;
+      return set_mask(val);
     }
 
     LOG_ERROR("[FN:%s IND:%d VAL:0x%08x] Unhandled", "IRQ::store32", index,
