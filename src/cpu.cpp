@@ -1,7 +1,7 @@
 #include "cpu.hpp"
+#include "asm.hpp"
 #include "data.hpp"
 #include "instruction.hpp"
-#include "asm.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -15,7 +15,7 @@ void CPU::dump() {
 
   printf("PC: %08x\n", cur_pc);
 
-  for(int i = 0; i < 8; ++i) {
+  for (int i = 0; i < 8; ++i) {
     int r1 = i * 4;
     int r2 = r1 + 1;
     int r3 = r2 + 1;
@@ -34,7 +34,7 @@ void CPU::dump() {
 
   printf("Next instruction: 0x%08x ", ins.data);
   decode(ins);
-  
+
   printf("\n\n");
 }
 
@@ -44,8 +44,11 @@ int CPU::dump_and_next() {
 }
 
 int CPU::next() {
-  pci.clock_sync(clock);
-  
+  if (clock.sync_pending()) {
+    pci.clock_sync(clock);
+    clock.update_sync_pending();
+  }
+
   // save cur pc here in case of expceiton for EPC
   cur_pc = pc;
 

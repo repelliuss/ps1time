@@ -117,7 +117,7 @@ struct Timer {
   u16 target = 0;
 
   /// If true, do not synchronize the timer with an external signal
-  bool free_run = false;
+  bool use_sync = false;
 
   /// The sync mode when free_run is false. Each one of the three timers
   /// interprets this mode differently
@@ -138,14 +138,11 @@ struct Timer {
   bool repeat_irq = false;
 
   /// TODO: not sure
-  bool pulse_irq = false;
+  bool negate_irq = false;
 
   /// Clock source (2 bits). Each timer can either use the CPU sysclock or an
   /// alternative clock source
   ClockSource clock_source = from_timer_bits_8_9(0);
-
-  /// TODO: not sure
-  bool request_interrupt = false;
 
   /// true if the target has been reached since the last read
   bool target_reached = false;
@@ -160,12 +157,19 @@ struct Timer {
   /// current position within a period of a counter tick
   FractionalCycle phase = FractionalCycle::from_cycles(0);
 
+  bool interrupt = false;
+
   Timer(Clock::Host instance) : instance(instance) {}
 
-  void reconfigure(GPU &gpu);
+  void reconfigure(GPU &gpu, Clock &clock);
 
-  void clock_sync(Clock &clock, IRQ &irq) {
+  int clock_sync(Clock &clock, IRQ &irq) {
     u64 delta = clock.sync(instance);
+
+    if (delta == 0) {
+      return 0;
+    }
+
     FractionalCycle delta_frac = FractionalCycle::from_cycles(delta);
     FractionalCycle ticks = delta_frac.add(phase);
 
@@ -174,28 +178,90 @@ struct Timer {
 
     this->phase = FractionalCycle::from_fixed_point(phase);
 
-    u64 target = 0x10000;
-    if(target_wrap) {
-      target = this->target + 1;
-    }
-
     count += this->counter;
 
-    if (count >= target) {
-      count %= target;
+    bool target_passed = false;
 
+    if (counter <= target && count > target) {
       this->target_reached = true;
+      target_passed = true;
+    }
 
-      if (target == 0x10000) {
-	this->overflow_reached = true;
+    u64 wrap = 0x10000;
+    if (target_wrap) {
+      wrap = this->target + 1;
+    }
+
+    bool overflow = false;
+
+    if (count >= wrap) {
+      count %= wrap;
+
+      if (wrap == 0x10000) {
+        this->overflow_reached = true;
+        overflow = true;
       }
     }
 
     this->counter = count;
+
+    if (this->wrap_irq && overflow || target_irq && target_passed) {
+      Interrupt interrupt;
+
+      switch (instance) {
+      case Clock::Host::timer0:
+        interrupt = Interrupt::timer0;
+        break;
+      case Clock::Host::timer1:
+        interrupt = Interrupt::timer1;
+        break;
+      case Clock::Host::timer2:
+        interrupt = Interrupt::timer2;
+        break;
+      default:
+	LOG_ERROR("Bad timer instance! %d", instance);
+	return -1;
+      }
+
+      if (this->negate_irq) {
+        LOG_ERROR("Unhandled negate IRQ");
+        return -1;
+      } else {
+        irq.request(interrupt);
+        this->interrupt = true;
+      }
+    } else if (!this->negate_irq) {
+      this->interrupt = false;
+    }
+
+    predict_next_sync(clock);
+
+    return 0;
+  }
+
+  void predict_next_sync(Clock &clock) {
+    if (!this->target_irq) {
+      clock.no_sync_needed(this->instance);
+    }
+
+    u64 countdown;
+
+    if (counter <= target) {
+      countdown = target - counter;
+    } else {
+      countdown = 0xffff - counter + target;
+    }
+
+    u64 delta = period.fixed_point_cycle * (countdown + 1);
+    delta -= phase.fixed_point_cycle;
+
+    delta = FractionalCycle::from_fixed_point(delta).ceil();
+
+    clock.set_alarm_after(instance, delta);
   }
 
   bool needs_gpu() {
-    if (!free_run) {
+    if (use_sync) {
       assert("Can't do sync mode");
       LOG_CRITICAL("Can't do sync mode");
       return false;
@@ -207,15 +273,15 @@ struct Timer {
   u16 mode() {
     u16 r = 0;
 
-    r |= static_cast<u16>(free_run);
+    r |= static_cast<u16>(use_sync);
     r |= static_cast<u16>(sync) << 1;
     r |= static_cast<u16>(target_wrap) << 3;
     r |= static_cast<u16>(target_irq) << 4;
     r |= static_cast<u16>(wrap_irq) << 5;
     r |= static_cast<u16>(repeat_irq) << 6;
-    r |= static_cast<u16>(pulse_irq) << 7;
+    r |= static_cast<u16>(negate_irq) << 7;
     r |= static_cast<u16>(clock_source.source) << 8;
-    r |= static_cast<u16>(request_interrupt) << 10;
+    r |= static_cast<u16>(!interrupt) << 10;
     r |= static_cast<u16>(target_reached) << 11;
     r |= static_cast<u16>(overflow_reached) << 12;
 
@@ -226,31 +292,42 @@ struct Timer {
     return r;
   }
 
-  void set_mode(u16 val) {
-    this->free_run = (val & 1) == 0;
+  int set_mode(u16 val) {
+    this->use_sync = (val & 1) != 0;
     this->sync = from_timer_bits_1_2((val >> 1) & 3);
     this->target_wrap = ((val >> 3) & 1) != 0;
     this->target_irq = ((val >> 4) & 1) != 0;
     this->wrap_irq = ((val >> 5) & 1) != 0;
     this->repeat_irq = ((val >> 6) & 1) != 0;
-    this->pulse_irq = ((val >> 7) & 1) != 0;
+    this->negate_irq = ((val >> 7) & 1) != 0;
     this->clock_source = from_timer_bits_8_9((val >> 8) & 3);
-    // Polarity of this flag appears to be reversed. I'm still not
-    // sure what it does though...
-    this->request_interrupt = ((val >> 10) & 1) != 0;
+
+    this->interrupt = false;
 
     // Writing to mode resets the counter
     this->counter = 0;
 
-    if (this->request_interrupt) {
-      assert("Unsupported timer IRQ request");
-      LOG_CRITICAL("Unsupported timer IRQ request");
+    if (this->wrap_irq) {
+      LOG_ERROR("Wrap IRQ not supported");
+      return -1;
     }
 
-    if (!this->free_run) {
-      LOG_CRITICAL("Only free run is supported timer: %d", instance);
-      assert("Only free run is supported");
+    if ((this->wrap_irq || this->target_irq) && !repeat_irq) {
+      LOG_ERROR("One shot timer interrupts are not supported");
+      return -1;
     }
+
+    if (this->negate_irq) {
+      LOG_ERROR("Only pulse interrupts are supported: %d", instance);
+      return -1;
+    }
+
+    if (this->use_sync) {
+      LOG_ERROR("Sync mode is not supported, %d", instance);
+      return -1;
+    }
+
+    return 0;
   }
 
   u16 get_target() {
@@ -281,7 +358,8 @@ struct Timers {
   int store32(u32 val, u32 offset, Clock &clock, IRQ &irq, GPU &gpu);
   int load16(u32 &val, u32 offset, Clock &clock, IRQ &irq);
   int load32(u32 &val, u32 offset, Clock &clock, IRQ &irq);
-  void video_timings_changed(GPU &gpu, Clock &clock, IRQ &irq);
+  int video_timings_changed(GPU &gpu, Clock &clock, IRQ &irq);
+  int clock_sync(Clock &clock, IRQ &irq);
 
   struct Reg {
     struct Pixel {

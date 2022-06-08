@@ -36,6 +36,7 @@ struct Clock {
   };
 
   u64 now = 0;
+  u64 next_sync = -1;
   State states[static_cast<int>(Host::SIZE)];
 
   constexpr u64 next_delta_time(u64 delta) {
@@ -68,9 +69,32 @@ struct Clock {
   constexpr State &get(Host who) { return states[static_cast<int>(who)]; }
 
   constexpr u64 sync(Host who) { return get(who).sync(now); }
+  
   constexpr void set_alarm_after(Host who, u64 delta) {
-    get(who).set_alarm(next_delta_time(delta));
+    u64 date = next_delta_time(delta);
+
+    get(who).set_alarm(date);
+
+    if (date < next_sync) {
+      next_sync = date;
+    }
   }
+
+  constexpr void no_sync_needed(Host who) { get(who).set_alarm(-1); }
+
+  constexpr bool sync_pending() { return next_sync <= now; }
+
+  constexpr void update_sync_pending() {
+    u64 min = -1;
+    for(size_t i = 0; i < static_cast<size_t>(Host::SIZE); ++i) {
+      if(states[i].next < min) {
+	min = states[i].next;
+      }
+    }
+
+    next_sync = min;
+  }
+
   constexpr bool alarmed(Host who) { return get(who).should_alarm(now); }
 
   constexpr void tick(u64 delta) { now = next_delta_time(delta); }
@@ -107,5 +131,11 @@ struct FractionalCycle {
 
   FractionalCycle divide(const FractionalCycle &cycle) {
     return {(fixed_point_cycle << fractional_bits()) / cycle.fixed_point_cycle};
+  }
+
+  u64 ceil() {
+    u64 shift = FractionalCycle::fractional_bits();
+    u64 align = (1 << shift) - 1;
+    return (fixed_point_cycle + align) >> shift;
   }
 };

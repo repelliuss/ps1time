@@ -439,7 +439,7 @@ int GPU::gp1(u32 val, Timers *timers, Clock &clock, IRQ &irq) {
   switch (opcode) {
   case 0x00: {
     int status = gp1_soft_reset(*this, val, clock, irq);
-    timers->video_timings_changed(*this, clock, irq);
+    status |= timers->video_timings_changed(*this, clock, irq);
     return status;
   } break;
   case 0x01:
@@ -459,7 +459,7 @@ int GPU::gp1(u32 val, Timers *timers, Clock &clock, IRQ &irq) {
   case 0x08:
     {
     int status = gp1_display_mode(*this, val, clock, irq);
-    timers->video_timings_changed(*this, clock, irq);
+    status |= timers->video_timings_changed(*this, clock, irq);
     return status;
   } break;
   default:

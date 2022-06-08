@@ -9,6 +9,8 @@ void PCI::clock_sync(Clock &clock) {
   if (clock.alarmed(Clock::Host::gpu)) {
     gpu.clock_sync(clock, irq);
   }
+
+  timers.clock_sync(clock, irq);
 }
 
 static u32 mask_addr_to_region(u32 addr) {

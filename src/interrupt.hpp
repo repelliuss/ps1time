@@ -8,6 +8,9 @@ enum struct Interrupt : u32 {
   vblank = 0,
   cdrom = 2,
   dma = 3,
+  timer0 = 4,
+  timer1 = 5,
+  timer2 = 6,
 };
 
 // NOTE: writes are ignored for these registers and return 0
@@ -53,6 +56,9 @@ struct IRQ {
     m = m & ~(1 << static_cast<int>(Interrupt::vblank));
     m = m & ~(1 << static_cast<int>(Interrupt::cdrom));
     m = m & ~(1 << static_cast<int>(Interrupt::dma));
+    m = m & ~(1 << static_cast<int>(Interrupt::timer0));
+    m = m & ~(1 << static_cast<int>(Interrupt::timer1));
+    m = m & ~(1 << static_cast<int>(Interrupt::timer2));
 
     if (m != 0) {
       LOG_ERROR("Unsupported interrupt %04x\n", m);
