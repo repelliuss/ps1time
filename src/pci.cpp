@@ -80,8 +80,7 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   }
 
   if (!HWregs::range.offset(index, addr)) {
-    LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "HWregs");
-    return -1;
+    return hw_regs.load32(val, index);
   }
 
   if (!RamSize::range.offset(index, addr)) {

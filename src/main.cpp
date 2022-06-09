@@ -1,8 +1,10 @@
+#include "instruction.hpp"
 #include "pci.hpp"
 #include "cpu.hpp"
 #include "data.hpp"
 #include "renderer.hpp"
 #include "disc.hpp"
+#include "asm.hpp"
 
 #include <SDL_error.h>
 #include <SDL_events.h>
@@ -12,22 +14,111 @@
 #include <iostream>
 #include <filesystem>
 
-SDL_GameController* get_controller() {
+static u32 mask_addr_to_region(u32 addr) {
+  static const u32 region_mask[8] = {// KUSEG: 2048MB
+                                     0xffffffff, 0xffffffff, 0xffffffff,
+                                     0xffffffff,
+                                     // KSEG0: 512MB
+                                     0x7fffffff,
+                                     // KSEG1: 512MB
+                                     0x1fffffff,
+                                     // KSEG2: 1024MB
+                                     0xffffffff, 0xffffffff};
+
+  return addr & region_mask[addr >> 29];
+}
+
+int sideload(const char *path, CPU &cpu) {
+  FILE *file = fopen(path, "r");
+  if(!file) {
+    return -1;
+  }
+
+  fseek(file, 0, SEEK_SET);
+
+  u64 magic;
+  fread(&magic, sizeof(u64), 1, file);
+  if(magic != 0x45584520582d5350) {
+    return -1;
+  }
+
+  u32 word;
+
+  fread(&word, sizeof(u32), 1, file);
+  fread(&word, sizeof(u32), 1, file);
+
+  fread(&cpu.pc, sizeof(u32), 1, file);
+  cpu.next_pc = cpu.pc + 4;
+
+  fread(&word, sizeof(u32), 1, file);
+
+  u32 addr;
+  u32 size;
+  u8 *ram = cpu.pci.ram.data;
+
+  fread(&addr, sizeof(u32), 1, file);
+  fread(&size, sizeof(u32), 1, file);
+
+  fread(&word, sizeof(u32), 1, file);
+  fread(&word, sizeof(u32), 1, file);
+  fread(&word, sizeof(u32), 1, file);
+  fread(&word, sizeof(u32), 1, file);
+
+  u32 sp;
+  fread(&sp, sizeof(u32), 1, file);
+  if(sp == 0) {
+    cpu.in_regs[29] = 0x801fff00;
+  }
+  else {
+    cpu.in_regs[29] = sp;
+  }
+
+  fseek(file, 0x71, SEEK_SET);
+  u8 region;
+  fread(&region, sizeof(u8), 1, file);
+
+  switch(region) {
+  default:
+  case 'N':
+  case 'J':
+    cpu.pci.gpu.configured_hardware_video_mode = VideoMode::ntsc;
+    break;
+  case 'E':
+    cpu.pci.gpu.configured_hardware_video_mode = VideoMode::pal;
+    break;
+  }
+
+  fseek(file, 2048, SEEK_SET);
+
+  addr = mask_addr_to_region(addr);
+  u32 index;
+  RAM::range.offset(index, addr);
+  int readed = fread(ram + index, sizeof(u8), size, file);
+  size = readed;
+  
+  fclose(file);
+
+  LOG_INFO("sideloaded");
+
+  return 0;
+}
+
+SDL_GameController *get_controller() {
   int joystick_count = SDL_NumJoysticks();
-  if(joystick_count < 0) {
+  if (joystick_count < 0) {
     LOG_ERROR("Can't enumerate joysticks %s", SDL_GetError());
     return nullptr;
   }
 
   SDL_GameController *controller = nullptr;
-  for(int id = 0; id < joystick_count; ++id) {
-    if(SDL_IsGameController(id) == SDL_TRUE) {
+  for (int id = 0; id < joystick_count; ++id) {
+    if (SDL_IsGameController(id) == SDL_TRUE) {
       LOG_DEBUG("Trying to open controller id %d", id);
 
       controller = SDL_GameControllerOpen(id);
-      if(controller) {
-	LOG_INFO("Opened controller %s", SDL_GameControllerNameForIndex(id));
-	return controller;
+      if (controller) {
+        LOG_INFO("Opened controller %s", SDL_GameControllerNameForIndex(id));
+        return controller;
       }
 
       LOG_ERROR("Couldn't open game controller %s: %s",
@@ -41,7 +132,7 @@ SDL_GameController* get_controller() {
 }
 
 void handle_keyboard(Profile *pad, SDL_Keycode key, ButtonState state) {
-  switch(key) {
+  switch (key) {
   case SDLK_RETURN:
     pad->set_button_state(state, Button::Start);
     break;
@@ -86,7 +177,6 @@ void handle_keyboard(Profile *pad, SDL_Keycode key, ButtonState state) {
     break;
   }
 }
-
 
 void handle_controller(Profile *pad, u8 button, ButtonState state) {
   switch (button) {
@@ -172,14 +262,15 @@ int main() {
 
   SDL_GameController *controller = get_controller();
 
-  std::optional<Disc> disc = from_path("res/bin/bandicoot.bin");
+  std::optional<Disc> disc = std::nullopt;
+  // std::optional<Disc> disc = from_path("res/bin/bandicoot.bin");
   VideoMode mode = VideoMode::ntsc;
 
-  if(disc) {
+  if (disc) {
     Region region = disc->region;
     LOG_INFO("Disc region %d", region);
 
-    if(region == Region::europe) {
+    if (region == Region::europe) {
       mode = VideoMode::pal;
     }
   }
@@ -193,6 +284,10 @@ int main() {
   while (!status) {
     for (int i = 0; i < 1000000 && !status; ++i) {
       status = cpu.next();
+
+      if(cpu.pc == 0x80030000) {
+	sideload("res/test/psxtest_cpu.exe", cpu);
+      }
     }
 
     SDL_Event event;

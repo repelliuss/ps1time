@@ -1,5 +1,6 @@
 #pragma once
 
+#include "data.hpp"
 #include "range.hpp"
 #include "types.hpp"
 #include "heap_byte_data.hpp"
@@ -42,6 +43,19 @@ struct HWregs {
   static constexpr Range range = {0x1f801000, 0x1f801024};
   u8 data[size];
 
+  inline int load32(u32 &val, u32 index) {
+    static constexpr const char *fn = "HWregs::store32";
+
+    switch (index) {
+    case 28:
+      val = 0x00070777;
+      return 0;
+    }
+
+    LOG_ERROR("[FN:%s IND:%d VAL:0x%08x] Ignored", fn, index, val);
+    return -1;
+  }
+
   inline int store32(u32 val, u32 index) {
     static constexpr const char *fn = "HWregs::store32";
     
@@ -53,6 +67,7 @@ struct HWregs {
         return -1;
       }
 
+      memory::store32(data, index, val);
       return 0;
 
     case 4:
@@ -62,6 +77,7 @@ struct HWregs {
         return -1;
       }
 
+      memory::store32(data, index, val);
       return 0;
     }
 
