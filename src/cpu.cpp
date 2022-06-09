@@ -56,6 +56,10 @@ int CPU::next() {
   if (cur_pc % 4 != 0) {
     return exception(Cause::unaligned_load_addr);
   }
+
+  if(pc == 0xb0 && reg(9) == 0x3d) {
+    printf("%c", reg(4));
+  }
   
   Instruction instruction;
   int cpu_fetch_result = fetch(instruction, cur_pc);
@@ -771,7 +775,9 @@ int CPU::slt(const Instruction &i) {
   return 0;
 }
 
-int CPU::syscall(const Instruction &i) { return exception(Cause::syscall); }
+int CPU::syscall(const Instruction &i) {
+  return exception(Cause::syscall);
+}
 
 int CPU::mtlo(const Instruction &i) {
   lo = reg(i.rs());
