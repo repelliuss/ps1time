@@ -14,3 +14,5 @@ using i8 = int8_t;
 
 using f32 = float;
 using f64 = double;
+
+static constexpr u32 CPU_FREQ_HZ = 33868500;

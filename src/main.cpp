@@ -2,6 +2,7 @@
 #include "cpu.hpp"
 #include "data.hpp"
 #include "renderer.hpp"
+#include "disc.hpp"
 
 #include <SDL_error.h>
 #include <SDL_events.h>
@@ -171,7 +172,19 @@ int main() {
 
   SDL_GameController *controller = get_controller();
 
-  PCI pci(std::move(bios), &renderer, VideoMode::ntsc);
+  std::optional<Disc> disc = from_path("res/bin/bandicoot.bin");
+  VideoMode mode = VideoMode::ntsc;
+
+  if(disc) {
+    Region region = disc->region;
+    LOG_INFO("Disc region %d", region);
+
+    if(region == Region::europe) {
+      mode = VideoMode::pal;
+    }
+  }
+
+  PCI pci(std::move(bios), &renderer, disc, mode);
   CPU cpu = CPU(pci);
 
   Profile *profile = &cpu.pci.pad_mem_card.pad1.profile;

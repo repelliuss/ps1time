@@ -18,6 +18,7 @@ struct Clock {
     timer1,
     timer2,
     pad_memcard,
+    cdrom,
     SIZE,
   };
 
@@ -78,6 +79,16 @@ struct Clock {
 
     if (date < next_sync) {
       next_sync = date;
+    }
+  }
+
+  constexpr void set_alarm_after_if_closer(Host who, u64 delta) {
+    u64 date = next_delta_time(delta);
+
+    u64 next_sync = get(who).next;
+
+    if (next_sync > date) {
+      get(who).set_alarm(date);
     }
   }
 

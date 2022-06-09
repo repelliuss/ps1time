@@ -4,6 +4,7 @@
 #include "range.hpp"
 #include "ram.hpp"
 #include "gpu.hpp"
+#include "cdrom.hpp"
 
 struct DMA : HeapByteData {
   static constexpr u32 size = 0x80;
@@ -86,8 +87,9 @@ struct DMA : HeapByteData {
 
   RAM &ram;
   GPU &gpu;
+  CDROM &cdrom;
 
-  DMA(RAM &ram, GPU &gpu);
+  DMA(RAM &ram, GPU &gpu, CDROM &cdrom);
 
   // TODO: may not be needed, may create chviews at beginning and track it there
   ChannelView make_channel_view(u32 dma_reg_index); 

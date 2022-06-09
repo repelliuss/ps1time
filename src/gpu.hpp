@@ -237,4 +237,3 @@ struct GPU {
   FractionalCycle hsync_phase();
 };
 
-static constexpr f32 CPU_FREQ_MHZ = 33.8685f;

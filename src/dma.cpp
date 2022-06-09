@@ -100,7 +100,7 @@ u32 transfer_block_count(const DMA::ChannelView &chview) {
 // for DMA
 namespace {
 
-using transfer_value_generator = u32 (*)(u32, u32);
+using transfer_value_generator = u32 (*)(u32, u32, void *);
 
 // REVIEW: make it a variable?
 // TODO: It seems that this value depends on the ram configuration. We are
@@ -112,7 +112,8 @@ constexpr u32 mask_reg_index_to_chview_type_val(u32 reg_index) {
   return reg_index & 0xfffffff0;
 }
 
-constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr) {
+constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr,
+                                             void *) {
   // REVIEW: this value is for end of linked list but a specific loop could be
   // written for OTC which would remove this check
   // REVIEW: looping by decrementing so 1 is valid, is there a more beautiful
@@ -124,17 +125,33 @@ constexpr u32 get_otc_channel_transfer_value(u32 remaining_size, u32 addr) {
   return (addr - 4) & ram_addr_align_mask();
 }
 
-inline u32 get_gpu_channel_transfer_value(u32 remaining_size, u32 addr) {
+inline u32 get_gpu_channel_transfer_value(u32 remaining_size, u32 addr,
+                                          void *) {
   LOG_DEBUG("DMA GPU READ");
   return 0;
 }
 
-transfer_value_generator get_generator(DMA::ChannelView::Type type) {
+constexpr u32 get_cdrom_channel_transfer_value(u32 remaining_size, u32 addr,
+                                               void *obj) {
+  CDROM *c = static_cast<CDROM *>(obj);
+  u32 word = 0xdeadbeef;
+  // TODO: handle error
+  if(c->dma_read_word(word)) {
+    LOG_CRITICAL("BAD DMA WORD");
+  }
+  return word;
+}
+
+transfer_value_generator get_generator(DMA::ChannelView::Type type, DMA *dma,
+                                       void **obj) {
   switch (type) {
   case DMA::ChannelView::Type::OTC:
     return get_otc_channel_transfer_value;
   case DMA::ChannelView::Type::GPU:
     return get_gpu_channel_transfer_value;
+  case DMA::ChannelView::Type::CDROM:
+    *obj = &dma->cdrom;
+    return get_cdrom_channel_transfer_value;
   default:
     LOG_ERROR("Unhandled DMA source port %d", type);
     return nullptr;
@@ -142,7 +159,7 @@ transfer_value_generator get_generator(DMA::ChannelView::Type type) {
 }
 
 constexpr u32 get_otc_channel_transfer_value_see_note_about_transfer_manual(
-    u32 remaining_size, u32 aligned_addr) {
+    u32 remaining_size, u32 aligned_addr, void *) {
   if (remaining_size == 1) {
     return 0xffffff;
   }
@@ -190,7 +207,7 @@ int transfer_manual(const DMA &dma, DMA::ChannelView &chview) {
   } else {
 
     for (u32 i = word_count; i > 0; --i) {
-      u32 value = generator(i, cur_addr);
+      u32 value = generator(i, cur_addr, nullptr);
       memory::store32(dma.ram.data, cur_addr, value);
       cur_addr += step;
     }
@@ -244,7 +261,7 @@ int transfer_linked_list(const DMA &dma, DMA::ChannelView &chview) {
 }
 
 // TODO: not quite right, see transfer_manual and its review
-int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
+int transfer_manual_and_request(DMA &dma, DMA::ChannelView &chview) {
   const u32 increment = chview::addr_step(chview);
   u32 cur_addr = chview.base_address;
   u32 remaining_size;
@@ -273,7 +290,9 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
       --remaining_size;
     }
   } else {
-    const transfer_value_generator generator = get_generator(chview.type);
+    void *obj;
+    const transfer_value_generator generator =
+        get_generator(chview.type, &dma, &obj);
     if (generator == nullptr)
       return -1;
 
@@ -281,7 +300,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
       // NOTE: it seems like addr may be bad duckstation handles similar to
       // this
       u32 aligned_addr = cur_addr & ram_addr_align_mask();
-      u32 src_word = generator(remaining_size, aligned_addr);
+      u32 src_word = generator(remaining_size, aligned_addr, obj);
 
       // load 32bit directly
       memory::store32(dma.ram.data, aligned_addr, src_word);
@@ -294,7 +313,7 @@ int transfer_manual_and_request(const DMA &dma, DMA::ChannelView &chview) {
   return 0;
 }
 
-int transfer(const DMA &dma, DMA::ChannelView &chview) {
+int transfer(DMA &dma, DMA::ChannelView &chview) {
   switch (chview::sync_mode(chview)) {
   case DMA::ChannelView::SyncMode::linked_list:
     return transfer_linked_list(dma, chview);
@@ -307,7 +326,8 @@ int transfer(const DMA &dma, DMA::ChannelView &chview) {
 
 } // namespace
 
-DMA::DMA(RAM &ram, GPU &gpu) : HeapByteData(size, 0), ram(ram), gpu(gpu) {
+DMA::DMA(RAM &ram, GPU &gpu, CDROM &cdrom)
+  : HeapByteData(size, 0), ram(ram), gpu(gpu), cdrom(cdrom) {
   memory::store32(data, Reg::control, 0x07654321);
 }
 

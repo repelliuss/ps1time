@@ -669,13 +669,15 @@ FractionalCycle GPU::gpu_to_cpu_clock_ratio() {
   f32 gpu_clock;
 
   if (configured_hardware_video_mode == VideoMode::ntsc) {
-    gpu_clock = 53.69f;
+    gpu_clock = 53690000.f;
   } else {
-    gpu_clock = 53.20f;
+    gpu_clock = 53200000.f;
   }
 
+  const f32 cpu_clock = CPU_FREQ_HZ;
+
   // Clock ratio shifted 16bits to the left
-  return FractionalCycle::from_f32(gpu_clock / CPU_FREQ_MHZ);
+  return FractionalCycle::from_f32(gpu_clock / cpu_clock);
 }
 
 u8 dotclock_divider(HorizontalRes hres) {

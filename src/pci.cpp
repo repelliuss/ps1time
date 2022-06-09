@@ -15,6 +15,10 @@ void PCI::clock_sync(Clock &clock) {
   }
 
   timers.clock_sync(clock, irq);
+
+  if (clock.alarmed(Clock::Host::cdrom)) {
+    cdrom.clock_sync(clock, irq);
+  }
 }
 
 static u32 mask_addr_to_region(u32 addr) {
@@ -216,7 +220,7 @@ int PCI::load8(u32 &val, u32 addr, Clock &clock) {
   }
 
   if (!CDROM::range.offset(index, addr)) {
-    return cdrom.load8(val, index);
+    return cdrom.load8(val, index, clock, irq);
   }
 
   if (!HWregs::range.offset(index, addr)) {
@@ -462,7 +466,7 @@ int PCI::store8(u8 val, u32 addr, Clock &clock) {
   }
 
   if (!CDROM::range.offset(index, addr)) {
-    return cdrom.store8(val, index, irq);
+    return cdrom.store8(val, index, clock, irq);
   }
 
   if (!RamSize::range.offset(index, addr)) {

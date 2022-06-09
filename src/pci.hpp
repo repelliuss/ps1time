@@ -112,13 +112,17 @@ struct PCI {
   Expansion2 expansion2;
   IRQ irq;
   Timers timers;
-  DMA dma;
   CDROM cdrom;
+  DMA dma;
   PadMemCard pad_mem_card;
 
-  PCI(Bios &&bios, Renderer *renderer, VideoMode configured_hardware_video_mode)
+  PCI(Bios &&bios, Renderer *renderer,
+      std::optional<Disc> disc,
+      VideoMode configured_hardware_video_mode)
       : bios(bios), gpu(renderer, configured_hardware_video_mode),
-        dma(ram, gpu) {}
+        dma(ram, gpu, cdrom) {
+    cdrom.disc = disc;
+  }
 
   PCI(const PCI &pci) = delete;
   PCI &operator=(const PCI &pci) = delete;
