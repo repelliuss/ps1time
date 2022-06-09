@@ -57,10 +57,20 @@ int PCI::load32(u32 &val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::load32";
   u32 index;
 
+  u32 unmasked_addr = addr;
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
     val = memory::load32(bios.data, index);
+    return 0;
+  }
+
+  if (!ScratchPad::range.offset(index, addr)) {
+    if (unmasked_addr > 0xa0000000) {
+      LOG_ERROR("ScratchPad access through uncached memory");
+      return -1;
+    }
+    val = memory::load32(scratch_pad.data, index);
     return 0;
   }
 
@@ -134,11 +144,22 @@ int PCI::load16(u32 &val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::load16";
   u32 index;
 
+  u32 unmasked_addr = addr;
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d] %s", fn, addr, index, "Bios");
     return -1;
+  }
+
+  if (!ScratchPad::range.offset(index, addr)) {
+    if (unmasked_addr > 0xa0000000) {
+      LOG_ERROR("ScratchPad access through uncached memory");
+      return -1;
+    }
+
+    val = memory::load16(scratch_pad.data, index);
+    return 0;
   }
 
   if (!CDROM::range.offset(index, addr)) {
@@ -212,10 +233,21 @@ int PCI::load8(u32 &val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::load8";
   u32 index;
 
+  u32 unmasked_addr = addr;
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
     val = memory::load8(bios.data, index);
+    return 0;
+  }
+
+  if (!ScratchPad::range.offset(index, addr)) {
+    if (unmasked_addr > 0xa0000000) {
+      LOG_ERROR("ScratchPad access through uncached memory");
+      return -1;
+    }
+
+    val = memory::load8(scratch_pad.data, index);
     return 0;
   }
 
@@ -288,13 +320,24 @@ int PCI::load8(u32 &val, u32 addr, Clock &clock) {
 int PCI::store32(u32 val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::store32";
   u32 index;
-  
+
+  u32 unmasked_addr = addr;
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
               "Bios");
     return -1;
+  }
+
+  if (!ScratchPad::range.offset(index, addr)) {
+    if (unmasked_addr > 0xa0000000) {
+      LOG_ERROR("ScratchPad access through uncached memory");
+      return -1;
+    }
+
+    memory::store32(scratch_pad.data, index, val);
+    return 0;
   }
 
   if (!HWregs::range.offset(index, addr)) {
@@ -366,13 +409,24 @@ int PCI::store32(u32 val, u32 addr, Clock &clock) {
 int PCI::store16(u16 val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::store16";
   u32 index;
-  
+
+  u32 unmasked_addr = addr;
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
               "Bios");
     return -1;
+  }
+
+  if (!ScratchPad::range.offset(index, addr)) {
+    if (unmasked_addr > 0xa0000000) {
+      LOG_ERROR("ScratchPad access through uncached memory");
+      return -1;
+    }
+
+    memory::store16(scratch_pad.data, index, val);
+    return 0;
   }
 
   if (!CDROM::range.offset(index, addr)) {
@@ -451,12 +505,23 @@ int PCI::store8(u8 val, u32 addr, Clock &clock) {
   static const char *fn = "PCI::store8";
   u32 index;
 
+  u32 unmasked_addr = addr;
   addr = mask_addr_to_region(addr);
 
   if (!Bios::range.offset(index, addr)) {
     LOG_ERROR("[FN:%s ADDR:0x%08x IND:%d VAL:0x%08x] %s", fn, addr, index, val,
               "Bios");
     return -1;
+  }
+
+  if (!ScratchPad::range.offset(index, addr)) {
+    if (unmasked_addr > 0xa0000000) {
+      LOG_ERROR("ScratchPad access through uncached memory");
+      return -1;
+    }
+
+    memory::store8(scratch_pad.data, index, val);
+    return 0;
   }
 
   if (!HWregs::range.offset(index, addr)) {

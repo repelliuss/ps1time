@@ -90,7 +90,13 @@ struct SPU : HeapByteData {
 struct Expansion1 : HeapByteData {
   static constexpr u32 size = 8388608; // 8MB
   static constexpr Range range = {0x1f000000, 0x1f800000};
-  Expansion1() : HeapByteData(size) {} 
+  Expansion1() : HeapByteData(size) {}
+};
+
+struct ScratchPad {
+  static constexpr u32 size = 1024;
+  static constexpr Range range = {0x1f800000, 0x1f800400};
+  u8 data[size];
 };
 
 struct Expansion2 {
@@ -115,6 +121,7 @@ struct PCI {
   CDROM cdrom;
   DMA dma;
   PadMemCard pad_mem_card;
+  ScratchPad scratch_pad;
 
   PCI(Bios &&bios, Renderer *renderer,
       std::optional<Disc> disc,
