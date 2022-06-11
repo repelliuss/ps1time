@@ -215,13 +215,21 @@ int CPU::ctc2(const Instruction &instruction) {
 }
 
 int CPU::decode_execute_cop2(const Instruction &instruction) {
-  switch(instruction.rs()) {
-  case 0b00110:
-    return ctc2(instruction);
-  }
 
-  LOG_ERROR("Unhandled GTE instruction: 0x%08x", instruction.data);
-  return -1;
+  u32 opcode = instruction.rs();
+
+  if ((opcode & 0x10) != 0) {
+    return gte.command(instruction.data);
+  }
+  else {
+    switch(opcode) {
+    case 0b00110:
+      return ctc2(instruction);
+    }
+
+    LOG_ERROR("Unhandled GTE instruction: 0x%08x", instruction.data);
+    return -1;
+  }
 }
 
 int CPU::decode_execute_cop3(const Instruction &instruction) {
@@ -1028,8 +1036,18 @@ int CPU::lwc1(const Instruction &i) {
 }
 
 int CPU::lwc2(const Instruction &i) {
-  LOG_ERROR("Unhandled GTE LWC: 0x%08x", i.data);
-  return -1;
+  u32 imm = i.imm16_se();
+  u32 addr = reg(i.rs()) + imm;
+
+  if (addr % 4 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
+
+  u32 val;
+  int status = pci.load32(val, addr, clock);
+  if(status < 0) return status;
+
+  return gte.set_data(i.rt(), val);
 }
 
 int CPU::lwc3(const Instruction &i) {

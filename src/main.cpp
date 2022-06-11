@@ -262,8 +262,8 @@ int main() {
 
   SDL_GameController *controller = get_controller();
 
-  std::optional<Disc> disc = std::nullopt;
-  // std::optional<Disc> disc = from_path("res/bin/bandicoot.bin");
+  // std::optional<Disc> disc = std::nullopt;
+  std::optional<Disc> disc = from_path("res/bin/bandicoot.bin");
   VideoMode mode = VideoMode::ntsc;
 
   if (disc) {
@@ -285,9 +285,9 @@ int main() {
     for (int i = 0; i < 1000000 && !status; ++i) {
       status = cpu.next();
 
-      if(cpu.pc == 0x80030000) {
-	sideload("res/test/psxtest_cpu.exe", cpu);
-      }
+      // if(cpu.pc == 0x80030000) {
+      // 	sideload("res/test/psxtest_cpu.exe", cpu);
+      // }
     }
 
     SDL_Event event;
