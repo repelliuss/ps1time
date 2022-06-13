@@ -255,10 +255,29 @@ int gp0_fill_rect(GPU &gpu, const GPUcommandBuffer &buf) {
   return gpu.renderer->put_quad(positions, colors);
 }
 
-int GPU::gp0(u32 val) {
-  u32 opcode = bits_in_range(val, 24, 31);
+int gp0_triangle_mono_opaque(GPU &gpu, const GPUcommandBuffer &buf) {
+  Position positions[3] = {
+    pos_from_gp0(buf.data[1]),
+    pos_from_gp0(buf.data[2]),
+    pos_from_gp0(buf.data[3]),
+  };
 
+  Color colors[3] = {
+    color_from_gp0(buf.data[0]),
+    color_from_gp0(buf.data[0]),
+    color_from_gp0(buf.data[0]),
+  };
+
+  return gpu.renderer->put_triangle(positions, colors);
+}
+
+int GPU::gp0(u32 val) {
   if (gp0_cmd_pending_words_count == 0) {
+    u32 opcode = val >> 24;
+
+    if (opcode == 0x20) {
+      LOG_DEBUG("GPU GP0 %08x", val);
+    }
 
     clear(gp0_cmd_buf);
 
@@ -274,6 +293,10 @@ int GPU::gp0(u32 val) {
     case 0x02:
       gp0_cmd_pending_words_count = 3;
       gp0_cmd = gp0_fill_rect;
+      break;
+    case 0x20:
+      gp0_cmd_pending_words_count = 4;
+      gp0_cmd = gp0_triangle_mono_opaque;
       break;
     case 0x28:
       gp0_cmd_pending_words_count = 5;
@@ -298,6 +321,10 @@ int GPU::gp0(u32 val) {
     case 0x38:
       gp0_cmd_pending_words_count = 8;
       gp0_cmd = gp0_quad_shaded_opaque;
+      break;
+    case 0x64:
+      gp0_cmd_pending_words_count = 4;
+      gp0_cmd = gp0_rect_texture_raw_opaque;
       break;
     case 0x65:
       gp0_cmd_pending_words_count = 4;

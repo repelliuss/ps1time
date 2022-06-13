@@ -214,6 +214,23 @@ int CPU::ctc2(const Instruction &instruction) {
   return gte.set_control(cop_r, val);
 }
 
+int CPU::mfc2(const Instruction &instruction) {
+  pending_load.reg_index = instruction.rt();
+  return gte.data(pending_load.val, instruction.rd());
+}
+
+int CPU::cfc2(const Instruction &instruction) {
+  pending_load.reg_index = instruction.rt();
+  pending_load.val = gte.control(instruction.rd());
+  return 0;
+}
+
+int CPU::mtc2(const Instruction &instruction) {
+  u32 val = reg(instruction.rt());
+  gte.set_data(instruction.rd(), val);
+  return 0;
+}
+
 int CPU::decode_execute_cop2(const Instruction &instruction) {
 
   u32 opcode = instruction.rs();
@@ -223,6 +240,12 @@ int CPU::decode_execute_cop2(const Instruction &instruction) {
   }
   else {
     switch(opcode) {
+    case 0b00000:
+      return mfc2(instruction);
+    case 0b00010:
+      return cfc2(instruction);
+    case 0b00100:
+      return mtc2(instruction);
     case 0b00110:
       return ctc2(instruction);
     }
@@ -1063,8 +1086,20 @@ int CPU::swc1(const Instruction &i) {
 }
 
 int CPU::swc2(const Instruction &i) {
-  LOG_ERROR("Unhandled GTE SWC: 0x%08x", i.data);
-  return -1;
+  u32 imm = i.imm16_se();
+  u32 cop_r = i.rt();
+  u32 s = i.rs();
+
+  u32 addr = reg(s) + imm;
+  u32 val;
+  int status = gte.data(val, cop_r);
+  if(status < 0) return status;
+
+  if (addr % 4 != 0) {
+    return exception(Cause::unaligned_load_addr);
+  }
+
+  return store32(val, addr);
 }
 
 int CPU::swc3(const Instruction &i) {

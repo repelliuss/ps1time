@@ -138,4 +138,7 @@ struct CPU {
   int swc2(const Instruction &instruction);
   int swc3(const Instruction &instruction);
   int ctc2(const Instruction &instruction);
+  int mfc2(const Instruction &instruction);
+  int cfc2(const Instruction &instruction);
+  int mtc2(const Instruction &instruction);
 };

@@ -105,7 +105,7 @@ struct XaSector {
     return std::nullopt;
   }
 
-  u8* bytes() { return raw; }
+  u8* data_bytes() { return raw + data_offset; }
 
   MSF msf() {
     MSF m;
@@ -168,13 +168,14 @@ struct Disc {
       return std::nullopt;
     }
 
-    char license_blob[113];
-    memcpy(license_blob, sector->bytes(), 112);
-    license_blob[112] = 0;
+    const int blob_size = 76;
+    char license_blob[blob_size + 1];
+    memcpy(license_blob, sector->data_bytes(), blob_size);
+    license_blob[blob_size] = 0;
 
-    char cleaned_blob[113];
+    char cleaned_blob[blob_size + 1];
     size_t last = 0;
-    for(size_t i = 0; i < 112; ++i) {
+    for(size_t i = 0; i < blob_size; ++i) {
       if(license_blob[i] >= 'A' && license_blob[i] <= 'Z') {
 	cleaned_blob[last++] = license_blob[i];
       } else if (license_blob[i] >= 'a' && license_blob[i] <= 'z') {
