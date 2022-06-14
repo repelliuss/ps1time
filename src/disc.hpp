@@ -18,15 +18,13 @@ static constexpr u8 SECTOR_SYNC_PATTERN[12] = {
 
 struct XaSector {
   u8 raw[SECTOR_SIZE];
-  u16 data_offset;
 
   XaSector() {
     memset(raw, 0, sizeof(u8) * SECTOR_SIZE);
-    data_offset = 0;
   }
 
   constexpr u8 data_byte(u16 idx) {
-    u32 index = static_cast<u32>(data_offset) + static_cast<u32>(idx);
+    u32 index = static_cast<u32>(idx);
     return raw[index];
   }
 
@@ -73,8 +71,6 @@ struct XaSector {
       return std::nullopt;
     }
 
-    data_offset = 24;
-
     if ((submode & 0x20) != 0) {
       return validate_mode2_form2();
     } else {
@@ -100,12 +96,10 @@ struct XaSector {
   }
 
   std::optional<XaSector> validate_mode2_form2() {
-    MSF m = msf();
-    LOG_ERROR("Unhandled Mode 2 Form 2 sector at %d %d %d", m.m, m.s, m.f);
-    return std::nullopt;
+    return *this;
   }
 
-  u8* data_bytes() { return raw + data_offset; }
+  u8* data_bytes() { return raw; }
 
   MSF msf() {
     MSF m;
@@ -168,9 +162,9 @@ struct Disc {
       return std::nullopt;
     }
 
-    const int blob_size = 76;
+    const int blob_size = 100-24;
     char license_blob[blob_size + 1];
-    memcpy(license_blob, sector->data_bytes(), blob_size);
+    memcpy(license_blob, sector->data_bytes() + 24, blob_size);
     license_blob[blob_size] = 0;
 
     char cleaned_blob[blob_size + 1];

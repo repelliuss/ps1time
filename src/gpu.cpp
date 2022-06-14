@@ -275,10 +275,6 @@ int GPU::gp0(u32 val) {
   if (gp0_cmd_pending_words_count == 0) {
     u32 opcode = val >> 24;
 
-    if (opcode == 0x20) {
-      LOG_DEBUG("GPU GP0 %08x", val);
-    }
-
     clear(gp0_cmd_buf);
 
     switch (opcode) {

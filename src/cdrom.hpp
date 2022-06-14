@@ -129,6 +129,8 @@ struct CDROM {
   XaSector rx_sector;
   bool rx_active = false;
   u16 rx_index = 0;
+  u16 rx_offset = 0;
+  u16 rx_len = 0;
   bool read_whole_sector = true;
 
   int load8(u32 &val, u32 offset, Clock &clock, IRQ &irq) {
@@ -342,12 +344,13 @@ struct CDROM {
   }
 
   constexpr int read_byte(u8 &byte) {
-    if (rx_index >= 0x800) {
+    if (rx_index >= rx_len) {
       LOG_ERROR("Unhandled CDROM long read");
       return -1;
     }
 
-    byte = rx_sector.data_byte(rx_index);
+    u16 pos = rx_offset + rx_index;
+    byte = rx_sector.data_byte(pos);
 
     if (rx_active) {
       rx_index += 1;
@@ -381,11 +384,6 @@ struct CDROM {
 
     LOG_INFO("CDROM: read sector %02x:%02x:%02x", position.m, position.s, position.f);
 
-    if (this->read_whole_sector) {
-      LOG_ERROR("Unhandled read whole sector");
-      return -1;
-    }
-
     if(!disc) {
       LOG_CRITICAL("unreachable code! no disc");
       assert("unreachable code! no disc");
@@ -399,6 +397,15 @@ struct CDROM {
     }
 
     rx_sector = o.value();
+
+    if (read_whole_sector) {
+      rx_offset = 12;
+      rx_len = 2340;
+    }
+    else {
+      rx_offset = 24;
+      rx_len = 2048;
+    }
 
     if (irq_flags == 0) {
       u8 dstatus = drive_status();
@@ -780,7 +787,7 @@ struct CDROM {
     double_speed = (mode & 0x80) != 0;
     read_whole_sector = (mode & 0x20) != 0;
 
-    if ((mode & 0x7f) != 0) {
+    if ((mode & 0x5f) != 0) {
       LOG_ERROR("CDROM: unhandled mode %02x\n", mode);
       return -1;
     }
