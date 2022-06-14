@@ -482,6 +482,21 @@ static int gp1_reset_command_buffer(GPU &gpu, u32 val) {
   return 0;
 }
 
+static int gp1_get_info(GPU &gpu, u32 val) {
+  u32 v;
+  if((val & 0xf) == 7) {
+    v = 2;
+  }
+  else {
+    LOG_ERROR("Unsupported GP1 info command %08x", val);
+    return -1;
+  }
+
+  gpu.read_word = v;
+
+  return 0;
+}
+
 int gp1_soft_reset(GPU &gpu, u32 val, Clock &clock, IRQ &irq) {
   gpu.page_base_x = 0;
   gpu.page_base_y = 0;
@@ -567,6 +582,8 @@ int GPU::gp1(u32 val, Timers *timers, Clock &clock, IRQ &irq) {
     status |= timers->video_timings_changed(*this, clock, irq);
     return status;
   } break;
+  case 0x10:
+    return gp1_get_info(*this, val);
   default:
     LOG_ERROR("Unhandled GP1 command 0x%x", val);
     return -1;
@@ -639,7 +656,7 @@ u32 GPU::status() {
 
 u32 GPU::read() {
   LOG_WARN("GPUREAD");
-  return 0;
+  return read_word;
 }
 
 int GPU::load32(u32 &val, u32 index, Clock &clock, IRQ &irq) {
@@ -824,6 +841,7 @@ bool GPU::in_vblank() {
   return (display_line < display_line_start) ||
          (display_line >= display_line_end);
 }
+
 
 void GPU::predict_next_clock_sync(Clock &clock) {
   // REVIEW: casting

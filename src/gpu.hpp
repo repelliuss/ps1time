@@ -214,6 +214,8 @@ struct GPU {
   /// PAL or NTSC, depends on the region
   VideoMode configured_hardware_video_mode = VideoMode::ntsc;
 
+  u32 read_word = 0;
+
   u32 status();
   u32 read();
   int gp0(u32 val);

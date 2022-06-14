@@ -551,6 +551,10 @@ struct CDROM {
       handler = &CDROM::cmd_init;
       break;
 
+    case 0x0c:
+      handler = &CDROM::cmd_demute;
+      break;
+
     case 0x0e:
       handler = &CDROM::cmd_set_mode;
       break;
@@ -844,6 +848,25 @@ struct CDROM {
                       {
                           .rx_delay = 58000,
                           .irq_delay = 58000 + 5401,
+                          .irq_code = IRQcode::ok,
+                          .response = from_bytes(&dstatus, 1),
+                      },
+              },
+      };
+
+    return 0;
+  }
+
+  constexpr int cmd_demute(CommandState &cs) {
+    u8 dstatus = drive_status();
+    cs = {
+          .state = CommandState::State::RxPending,
+          .data =
+              {
+                  .rx_pending =
+                      {
+                          .rx_delay = 32000,
+                          .irq_delay = 32000 + 5401,
                           .irq_code = IRQcode::ok,
                           .response = from_bytes(&dstatus, 1),
                       },
