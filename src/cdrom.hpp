@@ -129,6 +129,7 @@ struct CDROM {
   XaSector rx_sector;
   bool rx_active = false;
   u16 rx_index = 0;
+  bool read_whole_sector = true;
 
   int load8(u32 &val, u32 offset, Clock &clock, IRQ &irq) {
     clock_sync(clock, irq);
@@ -380,6 +381,11 @@ struct CDROM {
 
     LOG_INFO("CDROM: read sector %02x:%02x:%02x", position.m, position.s, position.f);
 
+    if (this->read_whole_sector) {
+      LOG_ERROR("Unhandled read whole sector");
+      return -1;
+    }
+
     if(!disc) {
       LOG_CRITICAL("unreachable code! no disc");
       assert("unreachable code! no disc");
@@ -539,6 +545,10 @@ struct CDROM {
 
     case 0x09:
       handler = &CDROM::cmd_pause;
+      break;
+
+    case 0x0a:
+      handler = &CDROM::cmd_init;
       break;
 
     case 0x0e:
@@ -764,6 +774,7 @@ struct CDROM {
     u8 mode = params.pop();
 
     double_speed = (mode & 0x80) != 0;
+    read_whole_sector = (mode & 0x20) != 0;
 
     if ((mode & 0x7f) != 0) {
       LOG_ERROR("CDROM: unhandled mode %02x\n", mode);
@@ -816,6 +827,28 @@ struct CDROM {
                     },
             },
     };
+
+    return 0;
+  }
+
+  constexpr int cmd_init(CommandState &cs) {
+    on_ack = &CDROM::ack_init;
+
+    u8 dstatus = drive_status();
+    
+    cs = {
+          .state = CommandState::State::RxPending,
+          .data =
+              {
+                  .rx_pending =
+                      {
+                          .rx_delay = 58000,
+                          .irq_delay = 58000 + 5401,
+                          .irq_code = IRQcode::ok,
+                          .response = from_bytes(&dstatus, 1),
+                      },
+              },
+      };
 
     return 0;
   }
@@ -938,6 +971,30 @@ struct CDROM {
                     },
             },
     };
+    return 0;
+  }
+
+  constexpr int ack_init(CommandState &cs) {
+    read_state.state = ReadState::idle;
+    double_speed = false;
+    read_whole_sector = true;
+
+    u8 dstatus = drive_status();
+
+    cs = {
+        .state = CommandState::State::RxPending,
+        .data =
+            {
+                .rx_pending =
+                    {
+                        .rx_delay = 2000000,
+                        .irq_delay = 2000000 + 1870,
+                        .irq_code = IRQcode::done,
+                        .response = from_bytes(&dstatus, 1),
+                    },
+            },
+    };
+
     return 0;
   }
 
