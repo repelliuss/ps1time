@@ -98,8 +98,6 @@ int sideload(const char *path, CPU &cpu) {
   
   fclose(file);
 
-  LOG_INFO("sideloaded");
-
   return 0;
 }
 
@@ -126,7 +124,7 @@ SDL_GameController *get_controller() {
     }
   }
 
-  LOG_INFO("No controller support");
+  LOG_INFO("No GAMEPAD support");
 
   return nullptr;
 }
@@ -240,9 +238,20 @@ void update_controller_axis(Profile *pad, u8 axis, i16 value) {
   pad->set_button_state(state, button);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   // TODO: handle fixed path
   static constexpr const char *bios_path = "res/bios/SCPH1001.BIN";
+  bool use_exe = false;
+  bool use_disc = false;
+
+  if (argc > 1) {
+    if (strstr(argv[1], "exe")) {
+      use_exe = true;
+    }
+    else {
+      use_disc = true;
+    }
+  }
 
   Bios bios;
   if (file::read_file(bios.data, bios_path, Bios::size)) {
@@ -262,8 +271,11 @@ int main() {
 
   SDL_GameController *controller = get_controller();
 
-  // std::optional<Disc> disc = std::nullopt;
-  std::optional<Disc> disc = from_path("res/bin/bandicoot.bin");
+  std::optional<Disc> disc = std::nullopt;
+  if (use_disc) {
+    disc = from_path(argv[1]);
+  }
+  
   VideoMode mode = VideoMode::ntsc;
 
   if (disc) {
@@ -285,9 +297,9 @@ int main() {
     for (int i = 0; i < 1000000 && !status; ++i) {
       status = cpu.next();
 
-      // if(cpu.pc == 0x80030000) {
-      // 	sideload("res/test/psxtest_cpu.exe", cpu);
-      // }
+      if(use_exe && cpu.pc == 0x80030000) {
+	sideload(argv[1], cpu);
+      }
     }
 
     SDL_Event event;

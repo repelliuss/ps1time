@@ -79,7 +79,6 @@ int CPU::next() {
   branch_ocurred = false;
 
   if (cop0.interrupt_pending()) {
-    LOG_DEBUG("Interrupt pending");
     exception(Cause::interrupt);
   }
   else {

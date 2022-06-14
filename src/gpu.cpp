@@ -824,7 +824,6 @@ void GPU::clock_sync(Clock &clock, IRQ &irq) {
 
   if(vblank_interrupt && !next_vblank_interrupt) {
     // End of vertical blanking
-    LOG_DEBUG("End of vblank, renderer->display()");
     renderer->display();
   }
 
