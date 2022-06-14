@@ -83,7 +83,7 @@ struct COP0 {
   // NOTE: shouldn't use get set
   constexpr void rfe() {
     u32 mode = data[sr] & 0x3f;
-    data[sr] &= ~0x3f;
+    data[sr] &= ~0xf;
     data[sr] |= mode >> 2;
   }
 
